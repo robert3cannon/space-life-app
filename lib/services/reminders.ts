@@ -7,20 +7,28 @@ import { deliverPush, type PushPayload } from "../push";
 import { addCalendarDays, todayDateString, zonedDateTimeToUtc } from "../time";
 import type { ReminderCreate, ReminderPatch } from "../validation";
 import { serializeReminder } from "./dto";
+import { openRemindedHabits } from "./habits";
 import { getSettings } from "./settings";
+import { waterTotalOn } from "./water";
 
 type EventRow = typeof events.$inferSelect;
 type WorkoutRow = typeof workouts.$inferSelect;
 
 function payloadFor(row: typeof reminders.$inferSelect): PushPayload {
   const url =
-    row.kind === "meal"
-      ? "/food"
-      : row.kind === "workout" && row.relatedId
-        ? `/workouts/${row.relatedId}`
-        : row.kind === "event"
-          ? "/schedule"
-          : "/reminders";
+    row.kind === "water"
+      ? "/water"
+      : row.kind === "sleep"
+        ? "/sleep"
+        : row.kind === "habit"
+          ? "/habits"
+          : row.kind === "meal"
+            ? "/food"
+            : row.kind === "workout" && row.relatedId
+              ? `/workouts/${row.relatedId}`
+              : row.kind === "event"
+                ? "/schedule"
+                : "/reminders";
   return {
     title: row.title,
     body: row.body || row.title,
@@ -138,6 +146,114 @@ export async function ensureMealReminders(now = new Date()) {
   return created;
 }
 
+async function ensureSlot(input: {
+  dedupeKey: string;
+  title: string;
+  body: string;
+  fireAt: Date;
+  kind: "water" | "sleep" | "habit";
+  now: Date;
+}) {
+  if (input.fireAt.getTime() < input.now.getTime() - 10 * 60_000) return 0;
+  const db = getDb();
+  const existing = await db.select().from(reminders).where(eq(reminders.dedupeKey, input.dedupeKey));
+  if (!existing.length) {
+    await db.insert(reminders).values({
+      title: input.title,
+      body: input.body,
+      fireAt: input.fireAt,
+      kind: input.kind,
+      dedupeKey: input.dedupeKey,
+      status: "pending",
+    });
+    return 1;
+  }
+  const row = existing[0];
+  if (row.status !== "pending") return 0;
+  if (row.title !== input.title || row.body !== input.body || row.fireAt.getTime() !== input.fireAt.getTime()) {
+    await db
+      .update(reminders)
+      .set({ title: input.title, body: input.body, fireAt: input.fireAt })
+      .where(eq(reminders.id, row.id));
+  }
+  return 0;
+}
+
+export async function ensureWellnessReminders(now = new Date()) {
+  const prefs = await getSettings();
+  const today = todayDateString(now);
+  let created = 0;
+  const waterMet = prefs.waterReminders.enabled ? (await waterTotalOn(today)) >= prefs.waterGoalOz : false;
+
+  if (prefs.waterReminders.enabled) {
+    for (const offset of [0, 1, 2]) {
+      const date = addCalendarDays(today, offset);
+      if (offset === 0 && waterMet) {
+        for (const time of prefs.waterReminders.times) {
+          await clearPendingReminder(`water:${date}:${time}`);
+        }
+        continue;
+      }
+      for (const time of prefs.waterReminders.times) {
+        if (time < "11:00") continue;
+        created += await ensureSlot({
+          dedupeKey: `water:${date}:${time}`,
+          title: "Water",
+          body: `Have a glass. The goal is ${prefs.waterGoalOz} oz.`,
+          fireAt: zonedDateTimeToUtc(date, time),
+          kind: "water",
+          now,
+        });
+      }
+    }
+  }
+
+  if (prefs.sleepReminder.enabled) {
+    const time = prefs.sleepReminder.time;
+    const late = time >= "20:00" || time <= "04:00";
+    if (late) {
+      for (const offset of [0, 1, 2]) {
+        const date = addCalendarDays(today, offset);
+        created += await ensureSlot({
+          dedupeKey: `sleep:${date}:${time}`,
+          title: "Wind down",
+          body: "Log sleep when you get up.",
+          fireAt: zonedDateTimeToUtc(date, time),
+          kind: "sleep",
+          now,
+        });
+      }
+    }
+  }
+
+  if (prefs.habitReminder.enabled && prefs.habitReminder.time >= "17:00") {
+    for (const offset of [0, 1]) {
+      const date = addCalendarDays(today, offset);
+      const open = await openRemindedHabits(date);
+      const key = `habit:${date}:${prefs.habitReminder.time}`;
+      if (!open.length) {
+        await clearPendingReminder(key);
+        continue;
+      }
+      const names = open
+        .slice(0, 3)
+        .map((habit) => habit.name)
+        .join(", ");
+      const extra = open.length > 3 ? ` +${open.length - 3}` : "";
+      created += await ensureSlot({
+        dedupeKey: key,
+        title: "Habits still open",
+        body: `${names}${extra}`,
+        fireAt: zonedDateTimeToUtc(date, prefs.habitReminder.time),
+        kind: "habit",
+        now,
+      });
+    }
+  }
+
+  return created;
+}
+
 function resolveFireAt(input: { fireAt?: string; date?: string; time?: string }, fallback?: Date) {
   if (input.date || input.time) {
     if (!input.date || !input.time) throw new HttpError("Provide both date and time", 400);
@@ -241,6 +357,7 @@ export async function upcomingReminders(limit: number) {
 
 export async function dispatchReminders(now = new Date()) {
   const mealRemindersCreated = await ensureMealReminders(now);
+  const wellnessRemindersCreated = await ensureWellnessReminders(now);
   const db = getDb();
   const due = await db
     .select()
@@ -264,6 +381,7 @@ export async function dispatchReminders(now = new Date()) {
         ok: false,
         reason: "push_not_configured" as const,
         mealRemindersCreated,
+        wellnessRemindersCreated,
         due: due.length,
         sent,
         held: due.length - sent,
@@ -283,6 +401,7 @@ export async function dispatchReminders(now = new Date()) {
   return {
     ok: true,
     mealRemindersCreated,
+    wellnessRemindersCreated,
     due: due.length,
     sent,
     held,

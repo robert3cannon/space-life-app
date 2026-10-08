@@ -1,11 +1,15 @@
 import { addActivity } from "../lib/services/activity";
 import { createEvent } from "../lib/services/events";
 import { createFood } from "../lib/services/food";
+import { createHabit, setHabitCheck } from "../lib/services/habits";
 import { createReminder, ensureMealReminders } from "../lib/services/reminders";
+import { logSleep } from "../lib/services/sleep";
 import { getSettings } from "../lib/services/settings";
+import { createWater } from "../lib/services/water";
 import { resolveExercise } from "../lib/exercises";
 import { createWorkout, updateWorkout } from "../lib/services/workouts";
 import { closeDb, getSql } from "../lib/db";
+import { assertCanSeed } from "../lib/seed-guard";
 import { addCalendarDays, calendarWeekday, todayDateString, weekStartDate } from "../lib/time";
 import type { EventType } from "../lib/types";
 import { loadLocalEnv } from "./load-env";
@@ -84,11 +88,9 @@ const foods = [
 ];
 
 async function main() {
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SEED !== "1") {
-    throw new Error("Refusing to seed production. Set ALLOW_SEED=1 if you really mean to replace the data.");
-  }
+  assertCanSeed();
   const sql = getSql();
-  await sql`TRUNCATE activity, push_subscriptions, reminders, workout_sets, workout_exercises, workouts, food_logs, events, settings RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE activity, push_subscriptions, reminders, workout_sets, workout_exercises, workouts, food_logs, water_logs, sleep_logs, habit_checks, habits, events, settings, food_cache RESTART IDENTITY CASCADE`;
   await getSettings();
 
   const today = todayDateString();
@@ -153,6 +155,37 @@ async function main() {
     date: addCalendarDays(today, 1),
     time: "21:00",
   });
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const wake = addCalendarDays(today, -offset);
+    if (wake > today) continue;
+    const afterMidnight = offset % 2 === 0;
+    await logSleep({
+      date: wake,
+      bedtime: afterMidnight ? "01:30" : "23:15",
+      wakeTime: "11:00",
+      quality: 3 + (offset % 3),
+    });
+    if (wake === today) {
+      await createWater({ ounces: 16, date: wake, time: "12:30" });
+      await createWater({ ounces: 16, date: wake, time: "16:00" });
+      await createWater({ ounces: 16, date: wake, time: "20:15" });
+    } else if (offset < 6) {
+      await createWater({ ounces: 80 + offset * 4, date: wake, time: "18:00" });
+    }
+  }
+
+  const stretch = await createHabit({ name: "Stretch", remind: true });
+  const read = await createHabit({ name: "Read 20 min", remind: true });
+  await createHabit({ name: "Hit protein goal", auto: "protein" });
+  await createHabit({ name: "Hit water goal", auto: "water" });
+  await createHabit({ name: "Vitamins", days: [1, 2, 3, 4, 5], remind: true });
+  for (let offset = 1; offset <= 4; offset += 1) {
+    await setHabitCheck(stretch.id, { date: addCalendarDays(today, -offset), done: true });
+  }
+  await setHabitCheck(read.id, { date: addCalendarDays(today, -1), done: true });
+  await setHabitCheck(read.id, { date: addCalendarDays(today, -2), done: true });
+
   await ensureMealReminders(new Date());
   await addActivity({
     source: "system",

@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { EVENT_META, MEAL_META } from "@/lib/constants";
-import { formatAgo, formatTime, formatTimeRange } from "@/lib/format";
-import type { TodayPayload, WorkoutDto } from "@/lib/types";
+import { api } from "@/lib/client";
+import { formatAgo, formatHours, formatTime, formatTimeRange } from "@/lib/format";
+import type { HabitSummary, TodayPayload, WorkoutDto } from "@/lib/types";
+import { useToast } from "./toast";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, Meter, PageTitle, Ring } from "./ui";
 
@@ -14,12 +17,12 @@ export function TodayView() {
       <PageTitle title="Today" />
       {loading && !data ? <Loading /> : null}
       {error ? <ErrorNote message={error} onRetry={reload} /> : null}
-      {data ? <TodayBody data={data} /> : null}
+      {data ? <TodayBody data={data} reload={reload} /> : null}
     </main>
   );
 }
 
-function TodayBody({ data }: { data: TodayPayload }) {
+function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise<void> }) {
   const calories = data.food.totals.calories;
   const target = data.food.targets.calories;
   return (
@@ -89,6 +92,40 @@ function TodayBody({ data }: { data: TodayPayload }) {
         )}
       </section>
 
+      <div className="pair">
+        <Link href="/water" className="card pair-card">
+          <span className="kicker">Water</span>
+          <strong className="stat">{ounces(data.water.totalOz)} oz</strong>
+          <span className="track" aria-hidden>
+            <span style={{ width: `${data.water.goalOz > 0 ? Math.min(100, Math.round((data.water.totalOz / data.water.goalOz) * 100)) : 0}%` }} />
+          </span>
+          <span className="faint">of {data.water.goalOz} oz</span>
+        </Link>
+        <Link href="/sleep" className="card pair-card">
+          <span className="kicker">Sleep</span>
+          {data.sleep.log ? (
+            <>
+              <strong className="stat">{formatHours(data.sleep.log.durationMinutes)}</strong>
+              <span className="faint">
+                {data.sleep.log.quality ? `${data.sleep.log.quality} of 5` : "Logged"}
+                {data.sleep.weekAverageMinutes != null ? ` · avg ${formatHours(data.sleep.weekAverageMinutes)}` : ""}
+              </span>
+            </>
+          ) : (
+            <>
+              <strong className="stat">Log it</strong>
+              <span className="faint">Not logged yet</span>
+            </>
+          )}
+        </Link>
+      </div>
+
+      <div className="section-title">
+        <h2>Habits</h2>
+        <Link href="/habits">All</Link>
+      </div>
+      <HabitList habits={data.habits} onChange={reload} />
+
       <div className="section-title">
         <h2>Training</h2>
         <Link href="/workouts">Open</Link>
@@ -139,6 +176,59 @@ function TodayBody({ data }: { data: TodayPayload }) {
         ))}
       </div>
     </>
+  );
+}
+
+function ounces(value: number) {
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+}
+
+function HabitList({ habits, onChange }: { habits: HabitSummary[]; onChange: () => Promise<void> }) {
+  const [burst, setBurst] = useState<string | null>(null);
+  const toast = useToast();
+  useEffect(() => {
+    if (!burst) return;
+    const timer = window.setTimeout(() => setBurst(null), 520);
+    return () => window.clearTimeout(timer);
+  }, [burst]);
+
+  async function toggle(habit: HabitSummary) {
+    const before = habit.currentStreak;
+    try {
+      const next = await api<HabitSummary>(`/api/habits/${habit.id}/check`, {
+        method: "POST",
+        body: JSON.stringify({ done: !habit.done }),
+      });
+      if (next.currentStreak > before) setBurst(habit.id);
+      await onChange();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't update that habit");
+    }
+  }
+
+  if (!habits.length) {
+    return (
+      <div className="stack">
+        <p className="muted">No habits due today.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="stack">
+      {habits.map((habit) => (
+        <button key={habit.id} className="habit-line" type="button" aria-pressed={habit.done} onClick={() => void toggle(habit)}>
+          <span className={`check-mark ${habit.done ? "on" : ""}`} aria-hidden>{habit.done ? "✓" : ""}</span>
+          <span className="habit-copy">
+            <strong>{habit.name}</strong>
+            <span className="faint">{habit.done ? "Done today" : "Still open"}</span>
+          </span>
+          <span className={`streak ${burst === habit.id ? "streak-pop" : ""}`}>
+            <strong>{habit.currentStreak === 1 ? "1 day" : `${habit.currentStreak} days`}</strong>
+            <span className="faint">Best {habit.bestStreak}</span>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -6,15 +6,18 @@ import type { TodayPayload } from "../types";
 import { listActivity } from "./activity";
 import { listEvents, nextEvent } from "./events";
 import { listFood, sumFood } from "./food";
+import { habitsDue } from "./habits";
 import { upcomingReminders } from "./reminders";
+import { getSleep } from "./sleep";
 import { getSettings } from "./settings";
+import { getWaterDay } from "./water";
 import { nextPlannedWorkout, workoutsOnDay } from "./workouts";
 
 export async function getToday(now = new Date()): Promise<TodayPayload> {
   const date = todayDateString(now);
   const day = zonedDayRange(date);
   const horizon = zonedDateTimeToUtc(addCalendarDays(date, 8), "00:00");
-  const [prefs, events, focusEvent, logs, workouts, nextWorkout, reminders, activity] = await Promise.all([
+  const [prefs, events, focusEvent, logs, workouts, nextWorkout, reminders, activity, water, sleep, habits] = await Promise.all([
     getSettings(),
     listEvents(day.from, day.to),
     nextEvent(now, horizon),
@@ -23,6 +26,9 @@ export async function getToday(now = new Date()): Promise<TodayPayload> {
     nextPlannedWorkout(now),
     upcomingReminders(4),
     listActivity(4),
+    getWaterDay(date),
+    getSleep(date),
+    habitsDue(date),
   ]);
 
   let focus: TodayPayload["focus"] = null;
@@ -66,5 +72,12 @@ export async function getToday(now = new Date()): Promise<TodayPayload> {
     nextWorkout,
     reminders,
     activity,
+    water: { goalOz: water.goalOz, totalOz: water.totalOz },
+    sleep: {
+      log: sleep.log,
+      weekAverageMinutes: sleep.week.averageMinutes,
+      trendMinutes: sleep.week.trendMinutes,
+    },
+    habits,
   };
 }

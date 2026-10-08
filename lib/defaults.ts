@@ -16,4 +16,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ],
   defaultEventReminderMinutes: 30,
   defaultWorkoutReminderMinutes: 30,
+  waterGoalOz: 100,
+  waterReminders: { enabled: false, times: ["12:00", "16:00", "20:00"] },
+  sleepReminder: { enabled: false, time: "01:00" },
+  habitReminder: { enabled: false, time: "22:00" },
 };

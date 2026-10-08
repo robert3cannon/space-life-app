@@ -80,6 +80,14 @@ export function formatWeight(weight: number | null, unit: string) {
   return `${shown} ${unit}`;
 }
 
+export function formatHours(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remain = minutes % 60;
+  if (hours <= 0) return `${remain}m`;
+  if (remain === 0) return `${hours}h`;
+  return `${hours}h ${remain}m`;
+}
+
 export function formatDuration(seconds: number | null) {
   if (seconds == null) return "";
   if (seconds < 60) return `${seconds}s`;

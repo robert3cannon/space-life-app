@@ -29,7 +29,7 @@ The compose file creates `orbit` and, on a fresh volume, `orbit_test` for `npm t
 
 Open [http://localhost:3000](http://localhost:3000) and sign in with `APP_PASSWORD`.
 
-`npm run seed` **deletes** events, food, workouts, reminders, push subscriptions, and the activity feed, then inserts an example week around today in Detroit. It refuses to run when `NODE_ENV=production` unless `ALLOW_SEED=1`.
+`npm run seed` **deletes** events, food, workouts, water, sleep, habits, reminders, push subscriptions, and the activity feed, then inserts an example week around today in Detroit. It refuses to run when `NODE_ENV=production` unless `ALLOW_SEED=1`. A fresh production database is only the schema from `npm run migrate`. It does not insert example classes, meals, workouts, water, sleep, or habits. The first time someone opens the app, settings pick up the default targets (including a 100 oz water goal) and the late meal-reminder times. Those are preferences, not sample logs.
 
 ## Environment variables
 
@@ -66,7 +66,7 @@ Put the public key in `VAPID_PUBLIC_KEY` and the private key in `VAPID_PRIVATE_K
 | `npm test` | Timezone, session, API, reminder dispatch, and VAPID signing tests |
 | `npm run icons` | Regenerate the PWA icons and splash screens |
 
-On Vercel the install uses `vercel-build`, which migrates and then builds. Seed is never part of deploy.
+On Vercel the install uses `vercel-build`, which migrates and then builds. Seed is never part of deploy, so a new production database starts empty.
 
 ## Deploy to Vercel
 
@@ -103,13 +103,15 @@ The manifest uses `display: standalone`, a dark theme color (`#060514`), and spl
 
 ## What the app does
 
-- **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, today's workout (or the next one), pending reminders, and the latest bot notes.
+- **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, water and last night's sleep, habits due today, today's workout (or the next one), pending reminders, and the latest bot notes.
 - **Schedule.** Day and week views. Create, edit, and delete blocks of type class, work, study, workout, meal, or other. Optional reminder before the start.
 - **Food.** Log meals with calories and protein, carbs, and fat. Search USDA FoodData Central and Open Food Facts by name, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
 - **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history. The exercise library (100+ movements) shows the muscles each one trains, a front and back body map, and a two-frame form demo. Tap a muscle to list what hits it. A session and the current week each roll those muscles up so you can see what you trained and what you skipped.
-- **Reminders.** Custom reminders, plus automatic ones for events, workouts, and meals (default 11:30 breakfast, 3:00 lunch, 8:00 dinner — late on purpose).
+- **Water and sleep.** Water has a daily ounce goal (default 100, editable) and quick adds of 8, 16, or 24 oz, plus a custom amount. Sleep is logged as bedtime and wake time, or as a duration, with an optional 1–5 quality. A bedtime after midnight still belongs to the morning you woke up, which is the usual case when wake time is around 11:00 AM. Both have a weekly chart.
+- **Habits.** Daily habits, or specific weekdays. Check them off on Today. Current and best streaks skip an unfinished today and skip days that are not scheduled. Protein, water, and a finished workout can fill a habit in from data already in the app. Each habit has a month calendar. An optional evening reminder covers the ones still open.
+- **Reminders.** Custom reminders, plus automatic ones for events, workouts, and meals (default 11:30 breakfast, 3:00 lunch, 8:00 dinner — late on purpose). Optional water nudges only at 11:00 or later, a wind-down that can be after midnight, and an evening habit reminder.
 - **Activity.** Short notes from you or from bots.
-- **Settings.** Targets, meal reminder times, and notification setup.
+- **Settings.** Targets, the water goal, meal and wellness reminder times, and notification setup.
 
 The UI is one account. Middleware redirects everyone else to `/login`. The session cookie is HTTP-only, `SameSite=Lax`, and `Secure` in production.
 
@@ -134,7 +136,7 @@ export BOT_API_TOKEN=your-token
 
 ### Today
 
-`GET /api/bot/today` — schedule, food totals, workouts, reminders, and recent activity for today in Detroit.
+`GET /api/bot/today` — schedule, food totals, water, last night's sleep, habits due today, workouts, reminders, and recent activity for today in Detroit.
 
 ```bash
 curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" "$BASE/api/bot/today"
@@ -329,6 +331,74 @@ curl -sS -X PATCH -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 `mealReminders` is a list of `{ id, label, time, enabled }`. Changing it drops unsent meal reminders so the next cron run recreates them. Timezone stays `America/Detroit`.
 
+`waterGoalOz` is the daily water goal. Default 100.
+
+`waterReminders` is `{ enabled, times }`. Times are `HH:mm`. When enabled, every time must be 11:00 or later so nudges stay in awake hours. `sleepReminder` is `{ enabled, time }` for a wind-down, late evening (20:00 or later) or after midnight through 04:00. `habitReminder` is `{ enabled, time }` at 17:00 or later. It fires only when a habit marked for a reminder is still open that day.
+
+Changing any of those drops unsent water, sleep, and habit reminders so the next cron run recreates them. If today's water goal is already met, today's water nudges are cleared.
+
+### Water
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/water` | Today: `goalOz`, `totalOz`, `logs`, and the Monday–Sunday week |
+| GET | `/api/bot/water?date=YYYY-MM-DD` | That Detroit day |
+| POST | `/api/bot/water` | `{ "ounces", "date"?, "time"? }`. Omit the clock to use now |
+| DELETE | `/api/bot/water/:id` | Remove one pour |
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ounces":16}' \
+  "$BASE/api/bot/water"
+```
+
+### Sleep
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/sleep` | Last night, plus this week and the trend against last week |
+| GET | `/api/bot/sleep?date=YYYY-MM-DD` | The morning you woke up |
+| POST | `/api/bot/sleep` | Log or replace that morning |
+| DELETE | `/api/bot/sleep/:id` | Remove one night |
+
+Send `bedtime` and `wakeTime` (`HH:mm`) with `date` as the wake date. A bedtime later on the clock than wake time is the previous evening (`23:30` to `11:00`). A bedtime earlier on the clock is the same date (`01:30` to `11:00`), which is the usual night-owl case. Or send `durationMinutes` instead of the clocks. `quality` is 1–5 and optional.
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-08","bedtime":"01:30","wakeTime":"11:00","quality":4}' \
+  "$BASE/api/bot/sleep"
+```
+
+### Habits
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/habits` | Every habit, with `currentStreak`, `bestStreak`, and whether today is done |
+| GET | `/api/bot/habits?date=YYYY-MM-DD` | Same, with `done` for that day |
+| POST | `/api/bot/habits` | Create |
+| GET | `/api/bot/habits/:id?month=YYYY-MM` | One habit and that month's calendar |
+| PATCH | `/api/bot/habits/:id` | Rename, reschedule, or change auto-complete |
+| DELETE | `/api/bot/habits/:id` | Delete the habit and its checks |
+| POST | `/api/bot/habits/:id/check` | `{ "done": true, "date"? }` |
+
+`days` is an array of weekdays, Sunday `0` through Saturday `6`. Omit it, or send `null`, for every day. `auto` is `protein`, `water`, `workout`, or `null`. Those fill in from food, water, and finished workouts. Unchecking an auto habit stays off (`source: "skip"`) even if the goal is still met. `remind: true` includes the habit in the evening reminder.
+
+An unfinished today does not break `currentStreak`. Days off the schedule do not break it either.
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Stretch","remind":true}' \
+  "$BASE/api/bot/habits"
+
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"done":true}' \
+  "$BASE/api/bot/habits/HABIT_ID/check"
+```
+
 ## Tests
 
-`npm test` uses `postgres://orbit:orbit@localhost:5432/orbit_test` and will not touch the dev database. It covers Detroit time (including the spring-forward change), session cookies, passcode and bot auth, event reminders, food totals, workout completion, meal-reminder creation, cron auth, and VAPID request signing. Push delivery is exercised with a fake subscription and a closed local endpoint, not a real iPhone.
+`npm test` uses `postgres://orbit:orbit@localhost:5432/orbit_test` and will not touch the dev database. It covers Detroit time (including the spring-forward change), after-midnight sleep, habit streaks, session cookies, passcode and bot auth, event reminders, food totals, workout completion, meal-reminder creation, cron auth, and VAPID request signing. Push delivery is exercised with a fake subscription and a closed local endpoint, not a real iPhone.

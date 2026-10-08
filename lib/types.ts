@@ -7,7 +7,7 @@ export type MealType = (typeof MEALS)[number];
 export const WORKOUT_STATUSES = ["planned", "done", "skipped"] as const;
 export type WorkoutStatus = (typeof WORKOUT_STATUSES)[number];
 
-export const REMINDER_KINDS = ["event", "meal", "workout", "custom"] as const;
+export const REMINDER_KINDS = ["event", "meal", "workout", "custom", "water", "sleep", "habit"] as const;
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
 
 export const REMINDER_STATUSES = ["pending", "sent", "cancelled"] as const;
@@ -27,12 +27,29 @@ export type MealReminderSetting = {
   enabled: boolean;
 };
 
+export type WaterReminderSetting = {
+  enabled: boolean;
+  times: string[];
+};
+
+export type ClockReminderSetting = {
+  enabled: boolean;
+  time: string;
+};
+
+export const HABIT_AUTOS = ["protein", "water", "workout"] as const;
+export type HabitAuto = (typeof HABIT_AUTOS)[number];
+
 export type AppSettings = {
   timezone: string;
   targets: Targets;
   mealReminders: MealReminderSetting[];
   defaultEventReminderMinutes: number;
   defaultWorkoutReminderMinutes: number;
+  waterGoalOz: number;
+  waterReminders: WaterReminderSetting;
+  sleepReminder: ClockReminderSetting;
+  habitReminder: ClockReminderSetting;
 };
 
 export type EventDto = {
@@ -115,6 +132,36 @@ export type ActivityDto = {
   createdAt: string;
 };
 
+export type WaterDto = {
+  id: string;
+  ounces: number;
+  loggedAt: string;
+  createdAt: string;
+};
+
+export type SleepDto = {
+  id: string;
+  wakeDate: string;
+  bedtime: string | null;
+  wakeAt: string | null;
+  durationMinutes: number;
+  quality: number | null;
+  notes: string | null;
+};
+
+export type HabitSummary = {
+  id: string;
+  name: string;
+  days: number[] | null;
+  auto: HabitAuto | null;
+  remind: boolean;
+  scheduled: boolean;
+  done: boolean;
+  source: "manual" | "auto" | "skip" | null;
+  currentStreak: number;
+  bestStreak: number;
+};
+
 export type TodayPayload = {
   timezone: string;
   now: string;
@@ -137,4 +184,14 @@ export type TodayPayload = {
   nextWorkout: WorkoutDto | null;
   reminders: ReminderDto[];
   activity: ActivityDto[];
+  water: {
+    goalOz: number;
+    totalOz: number;
+  };
+  sleep: {
+    log: SleepDto | null;
+    weekAverageMinutes: number | null;
+    trendMinutes: number | null;
+  };
+  habits: HabitSummary[];
 };

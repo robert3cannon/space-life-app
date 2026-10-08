@@ -1,4 +1,4 @@
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { reminders, settings } from "../db/schema";
 import { DEFAULT_SETTINGS } from "../defaults";
@@ -16,6 +16,14 @@ function normalize(value: AppSettings): AppSettings {
     timezone: TIMEZONE,
     targets: { ...DEFAULT_SETTINGS.targets, ...value.targets },
     mealReminders: value.mealReminders?.length ? value.mealReminders : DEFAULT_SETTINGS.mealReminders,
+    waterGoalOz: value.waterGoalOz ?? DEFAULT_SETTINGS.waterGoalOz,
+    waterReminders: {
+      ...DEFAULT_SETTINGS.waterReminders,
+      ...value.waterReminders,
+      times: value.waterReminders?.times?.length ? value.waterReminders.times : DEFAULT_SETTINGS.waterReminders.times,
+    },
+    sleepReminder: { ...DEFAULT_SETTINGS.sleepReminder, ...value.sleepReminder },
+    habitReminder: { ...DEFAULT_SETTINGS.habitReminder, ...value.habitReminder },
   };
 }
 
@@ -36,6 +44,9 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     ...patch,
     targets: patch.targets ?? current.targets,
     mealReminders: patch.mealReminders ?? current.mealReminders,
+    waterReminders: patch.waterReminders ?? current.waterReminders,
+    sleepReminder: patch.sleepReminder ?? current.sleepReminder,
+    habitReminder: patch.habitReminder ?? current.habitReminder,
   });
   const db = getDb();
   await db
@@ -44,6 +55,11 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     .onConflictDoUpdate({ target: settings.key, set: { value: next } });
   if (patch.mealReminders) {
     await db.delete(reminders).where(and(eq(reminders.kind, "meal"), ne(reminders.status, "sent")));
+  }
+  if (patch.waterReminders || patch.sleepReminder || patch.habitReminder || patch.waterGoalOz != null) {
+    await db
+      .delete(reminders)
+      .where(and(inArray(reminders.kind, ["water", "sleep", "habit"]), ne(reminders.status, "sent")));
   }
   return next;
 }

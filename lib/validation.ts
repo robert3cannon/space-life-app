@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EVENT_TYPES, MEALS, WORKOUT_STATUSES } from "./types";
+import { EVENT_TYPES, HABIT_AUTOS, MEALS, WORKOUT_STATUSES } from "./types";
 
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const timeField = z.string().regex(/^\d{2}:\d{2}$/);
@@ -122,6 +122,82 @@ export const settingsPatchSchema = z.object({
     .optional(),
   defaultEventReminderMinutes: z.number().int().min(0).max(1440).optional(),
   defaultWorkoutReminderMinutes: z.number().int().min(0).max(1440).optional(),
+  waterGoalOz: z.number().int().min(8).max(400).optional(),
+  waterReminders: z
+    .object({
+      enabled: z.boolean(),
+      times: z.array(timeField).max(6),
+    })
+    .superRefine((value, ctx) => {
+      if (!value.enabled) return;
+      if (!value.times.length) {
+        ctx.addIssue({ code: "custom", message: "Add at least one water reminder" });
+      }
+      if (value.times.some((time) => time < "11:00")) {
+        ctx.addIssue({ code: "custom", message: "Water reminders stay at 11:00 or later" });
+      }
+    })
+    .optional(),
+  sleepReminder: z
+    .object({
+      enabled: z.boolean(),
+      time: timeField,
+    })
+    .superRefine((value, ctx) => {
+      if (!value.enabled) return;
+      const late = value.time >= "20:00" || value.time <= "04:00";
+      if (!late) {
+        ctx.addIssue({ code: "custom", message: "Wind-down should be late evening or after midnight" });
+      }
+    })
+    .optional(),
+  habitReminder: z
+    .object({
+      enabled: z.boolean(),
+      time: timeField,
+    })
+    .superRefine((value, ctx) => {
+      if (!value.enabled) return;
+      if (value.time < "17:00") {
+        ctx.addIssue({ code: "custom", message: "The habit reminder should be in the evening" });
+      }
+    })
+    .optional(),
+});
+
+export const waterCreateSchema = z.object({
+  ounces: z.number().min(0.5).max(200),
+  loggedAt: z.string().min(1).optional(),
+  date: dateField.optional(),
+  time: timeField.optional(),
+});
+
+export const sleepLogSchema = z
+  .object({
+    date: dateField.optional(),
+    bedtime: timeField.optional(),
+    bedtimeDate: dateField.optional(),
+    wakeTime: timeField.optional(),
+    durationMinutes: z.number().int().min(1).max(960).optional(),
+    quality: z.number().int().min(1).max(5).nullable().optional(),
+    notes: z.string().trim().max(500).nullable().optional(),
+  })
+  .refine((value) => Boolean(value.bedtime && value.wakeTime) || value.durationMinutes != null, {
+    message: "Provide bedtime and wake time, or a duration",
+  });
+
+export const habitCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  days: z.array(z.number().int().min(0).max(6)).max(7).nullable().optional(),
+  auto: z.enum(HABIT_AUTOS).nullable().optional(),
+  remind: z.boolean().optional(),
+});
+
+export const habitPatchSchema = habitCreateSchema.partial();
+
+export const habitCheckSchema = z.object({
+  date: dateField.optional(),
+  done: z.boolean(),
 });
 
 export const notifySchema = z.object({
@@ -157,3 +233,8 @@ export type ExerciseInput = z.infer<typeof exerciseSchema>;
 export type ExerciseAppend = z.infer<typeof exerciseAppendSchema>;
 export type ReminderCreate = z.infer<typeof reminderCreateSchema>;
 export type ReminderPatch = z.infer<typeof reminderPatchSchema>;
+export type WaterCreate = z.infer<typeof waterCreateSchema>;
+export type SleepLogInput = z.infer<typeof sleepLogSchema>;
+export type HabitCreate = z.infer<typeof habitCreateSchema>;
+export type HabitPatch = z.infer<typeof habitPatchSchema>;
+export type HabitCheckInput = z.infer<typeof habitCheckSchema>;

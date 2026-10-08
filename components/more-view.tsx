@@ -4,9 +4,12 @@ import Link from "next/link";
 import { PageTitle } from "./ui";
 
 const links = [
-  { href: "/reminders", title: "Reminders", copy: "Meal, workout, and custom nudges." },
+  { href: "/water", title: "Water", copy: "Daily ounces, quick add, and the week." },
+  { href: "/sleep", title: "Sleep", copy: "Bedtime, wake time, and the weekly trend." },
+  { href: "/habits", title: "Habits", copy: "Check-ins, streaks, and a month view." },
+  { href: "/reminders", title: "Reminders", copy: "Meals, water, wind-down, and custom nudges." },
   { href: "/activity", title: "Activity", copy: "Notes from your scheduler and coach bots." },
-  { href: "/settings", title: "Settings", copy: "Targets, home screen, and notifications." },
+  { href: "/settings", title: "Settings", copy: "Targets, reminders, and notifications." },
 ];
 
 export function MoreView() {

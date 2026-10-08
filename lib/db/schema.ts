@@ -99,3 +99,39 @@ export const foodCache = pgTable("food_cache", {
   payload: jsonb("payload").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
 });
+
+export const waterLogs = pgTable("water_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ounces: doublePrecision("ounces").notNull(),
+  loggedAt: timestamp("logged_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const sleepLogs = pgTable("sleep_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  wakeDate: text("wake_date").notNull(),
+  bedtime: timestamp("bedtime", { withTimezone: true, mode: "date" }),
+  wakeAt: timestamp("wake_at", { withTimezone: true, mode: "date" }),
+  durationMinutes: integer("duration_minutes").notNull(),
+  quality: integer("quality"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const habits = pgTable("habits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  days: jsonb("days").$type<number[] | null>(),
+  auto: text("auto"),
+  remind: boolean("remind").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const habitChecks = pgTable("habit_checks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  habitId: uuid("habit_id").notNull(),
+  date: text("date").notNull(),
+  source: text("source").notNull().default("manual"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});

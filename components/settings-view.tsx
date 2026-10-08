@@ -37,6 +37,13 @@ export function SettingsView() {
   const [busy, setBusy] = useState(false);
   const [targets, setTargets] = useState({ calories: "", proteinG: "", carbsG: "", fatG: "" });
   const [meals, setMeals] = useState<AppSettings["mealReminders"]>([]);
+  const [waterGoal, setWaterGoal] = useState("100");
+  const [waterOn, setWaterOn] = useState(false);
+  const [waterTimes, setWaterTimes] = useState<string[]>(["12:00", "16:00", "20:00"]);
+  const [sleepOn, setSleepOn] = useState(false);
+  const [sleepTime, setSleepTime] = useState("01:00");
+  const [habitOn, setHabitOn] = useState(false);
+  const [habitTime, setHabitTime] = useState("22:00");
   const toast = useToast();
 
   useEffect(() => {
@@ -61,6 +68,13 @@ export function SettingsView() {
       fatG: String(settings.data.targets.fatG),
     });
     setMeals(settings.data.mealReminders);
+    setWaterGoal(String(settings.data.waterGoalOz));
+    setWaterOn(settings.data.waterReminders.enabled);
+    setWaterTimes(settings.data.waterReminders.times);
+    setSleepOn(settings.data.sleepReminder.enabled);
+    setSleepTime(settings.data.sleepReminder.time);
+    setHabitOn(settings.data.habitReminder.enabled);
+    setHabitTime(settings.data.habitReminder.time);
   }, [settings.data]);
 
   async function enable() {
@@ -113,6 +127,10 @@ export function SettingsView() {
             fatG: Number(targets.fatG),
           },
           mealReminders: meals,
+          waterGoalOz: Number(waterGoal),
+          waterReminders: { enabled: waterOn, times: waterTimes },
+          sleepReminder: { enabled: sleepOn, time: sleepTime },
+          habitReminder: { enabled: habitOn, time: habitTime },
         }),
       });
       toast("Saved");
@@ -194,7 +212,66 @@ export function SettingsView() {
               </div>
             ))}
           </section>
-          <button className="btn" style={{ marginTop: 12 }} type="submit">Save targets</button>
+          <section className="card" style={{ marginTop: 12 }}>
+            <strong>Water, sleep, and habits</strong>
+            <p className="faint">Water nudges stay at 11:00 or later. Wind-down can be after midnight. The habit nudge is evening only, and only for habits you include.</p>
+            <label className="field">
+              <span>Water goal, ounces</span>
+              <input inputMode="numeric" value={waterGoal} onChange={(event) => setWaterGoal(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Water nudges</span>
+              <select value={waterOn ? "yes" : "no"} onChange={(event) => setWaterOn(event.target.value === "yes")}>
+                <option value="no">Off</option>
+                <option value="yes">On</option>
+              </select>
+            </label>
+            {waterTimes.map((time, index) => (
+              <div key={`${time}-${index}`} className="spread">
+                <label className="field" style={{ flex: 1 }}>
+                  <span>Nudge {index + 1}</span>
+                  <input type="time" value={time} onChange={(event) => setWaterTimes(waterTimes.map((item, i) => i === index ? event.target.value : item))} />
+                </label>
+                <button
+                  className="text-btn"
+                  type="button"
+                  aria-label={`Remove water nudge ${index + 1}`}
+                  disabled={waterTimes.length <= 1}
+                  onClick={() => setWaterTimes(waterTimes.filter((_, i) => i !== index))}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {waterTimes.length < 6 ? (
+              <button className="btn-ghost" type="button" onClick={() => setWaterTimes([...waterTimes, "18:00"])}>Add a water nudge</button>
+            ) : null}
+            <div className="grid-2" style={{ marginTop: 8 }}>
+              <label className="field">
+                <span>Wind-down</span>
+                <select value={sleepOn ? "yes" : "no"} onChange={(event) => setSleepOn(event.target.value === "yes")}>
+                  <option value="no">Off</option>
+                  <option value="yes">On</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Wind-down time</span>
+                <input type="time" value={sleepTime} onChange={(event) => setSleepTime(event.target.value)} />
+              </label>
+              <label className="field">
+                <span>Habit reminder</span>
+                <select value={habitOn ? "yes" : "no"} onChange={(event) => setHabitOn(event.target.value === "yes")}>
+                  <option value="no">Off</option>
+                  <option value="yes">On</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Habit time</span>
+                <input type="time" value={habitTime} onChange={(event) => setHabitTime(event.target.value)} />
+              </label>
+            </div>
+          </section>
+          <button className="btn" style={{ marginTop: 12 }} type="submit">Save</button>
         </form>
       ) : null}
     </main>
