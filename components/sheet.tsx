@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export function Sheet({
   open,
@@ -51,8 +52,8 @@ export function Sheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
     <>
       <button className="backdrop" aria-label="Close" onClick={onClose} />
       <div ref={sheetRef} className="sheet" role="dialog" aria-modal="true" aria-label={title}>
@@ -65,6 +66,7 @@ export function Sheet({
         </header>
         <div className="sheet-body">{children}</div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

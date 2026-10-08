@@ -7,3 +7,9 @@ export async function routeId(ctx: { params: Promise<{ id: string }> }) {
   if (!id || !UUID_RE.test(id)) throw new HttpError("Not found", 404);
   return id;
 }
+
+export async function routeMealItem(ctx: { params: Promise<{ id: string; itemId: string }> }) {
+  const { id, itemId } = await ctx.params;
+  if (!id || !itemId || !UUID_RE.test(id) || !UUID_RE.test(itemId)) throw new HttpError("Not found", 404);
+  return { id, itemId };
+}

@@ -77,15 +77,49 @@ export type EventDto = {
 
 export type FoodDto = {
   id: string;
+  mealId: string;
   name: string;
+  brand: string | null;
   meal: MealType;
+  place: string | null;
   calories: number;
   proteinG: number;
   carbsG: number;
   fatG: number;
+  grams: number | null;
+  quantity: number;
+  servingLabel: string | null;
+  sourceId: string | null;
   loggedAt: string;
   notes: string | null;
   createdAt: string;
+};
+
+export type MealItemDto = {
+  id: string;
+  name: string;
+  brand: string | null;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  grams: number | null;
+  quantity: number;
+  servingLabel: string | null;
+  sourceId: string | null;
+  position: number;
+};
+
+export type MealDto = {
+  id: string;
+  place: string | null;
+  meal: MealType;
+  loggedAt: string;
+  notes: string | null;
+  createdAt: string;
+  itemCount: number;
+  totals: Targets;
+  items: MealItemDto[];
 };
 
 export type SetDto = {
@@ -190,6 +224,7 @@ export type TodayPayload = {
     targets: Targets;
     totals: Targets;
     logs: FoodDto[];
+    meals: MealDto[];
   };
   workouts: WorkoutDto[];
   nextWorkout: WorkoutDto | null;

@@ -254,7 +254,7 @@ This reads today's Orbit meals and water, writes them with **Log Health Sample**
 7. Add **Dictionary**. `food` → `WrittenFood`. `water` → `WrittenWater`. An empty list is fine when nothing was new.
 8. Add **Get Contents of URL**. URL: the acknowledge address. Method: POST. Same Authorization header. Request Body: JSON, set to that dictionary. The next export leaves those items out. Sending the same ids again does nothing.
 
-`GET /api/apple-health/export` returns `{ date, timezone, food, water }` for today in Detroit. Each food item has `id`, `name`, `meal`, `calories`, `proteinG`, `carbsG`, `fatG`, and `loggedAt`. Each water item has `id`, `ounces`, and `loggedAt`. Items already acknowledged are omitted.
+`GET /api/apple-health/export` returns `{ date, timezone, food, meals, water }` for today in Detroit. `food` is the flat list the shortcut should log: each item has `id`, `name`, `meal`, `calories`, `proteinG`, `carbsG`, `fatG`, and `loggedAt`. `meals` is the same day grouped by place, each with nested `items` and a `totals` object. Acknowledge the flat `food` ids. Items already acknowledged are omitted from `food`; `meals` still shows the whole day. Each water item has `id`, `ounces`, and `loggedAt`.
 
 ### Daily automation
 
@@ -332,17 +332,27 @@ curl -sS -X DELETE -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 | Method | Path | |
 | --- | --- | --- |
-| GET | `/api/bot/food` | Today, with totals, targets, and recent foods |
+| GET | `/api/bot/food` | Today. Totals, targets, flat `logs`, grouped `meals`, `recent`, `recentMeals`, and `places` |
 | GET | `/api/bot/food?date=YYYY-MM-DD` | That day |
-| GET | `/api/bot/food?from=ISO&to=ISO` | Range |
-| POST | `/api/bot/food` | Log. Omit `loggedAt` to use now |
-| GET, PATCH, DELETE | `/api/bot/food/:id` | One entry |
+| GET | `/api/bot/food?from=ISO&to=ISO` | Range. Flat `logs` and grouped `meals` |
+| POST | `/api/bot/food` | Log one food, or a meal when the body has `items` |
+| GET, PATCH, DELETE | `/api/bot/food/:id` | One flat food item (a line inside a meal) |
 | GET | `/api/bot/food/recent` | Last distinct foods, for quick re-log |
 | GET | `/api/bot/food/summary?date=YYYY-MM-DD` | The Monday–Sunday week containing that day |
 | GET | `/api/bot/food/search?q=` | Search curated restaurant menus, then USDA and Open Food Facts. `limit` is 1–15, default 8 |
 | GET | `/api/bot/food/barcode?code=` | One packaged food by UPC/EAN |
+| GET | `/api/bot/meals` | Today’s meals, with `recentMeals` and `places` |
+| GET | `/api/bot/meals?date=YYYY-MM-DD` | That day’s meals |
+| POST | `/api/bot/meals` | Log a meal: `{ place, items: [...] }` |
+| GET, PATCH, DELETE | `/api/bot/meals/:id` | One meal. PATCH may replace `items` |
+| POST | `/api/bot/meals/:id/items` | Add one item. Response is the meal |
+| PATCH, DELETE | `/api/bot/meals/:id/items/:itemId` | Edit or remove one item. Deleting the last item removes the meal |
 
-`meal` is `breakfast`, `lunch`, `dinner`, or `snack`. Re-log by POSTing the same name and macros again (or copy a row from `/recent`).
+`meal` on a food or a meal is the time of day: `breakfast`, `lunch`, `dinner`, or `snack`. A meal also has a `place` (`Home`, a restaurant, or whatever he typed). One meal is one event: its `totals` are the sum of its items, and the day’s `totals` are the sum of the flat `logs`. Re-log a single food by POSTing the same name and macros, or copy a row from `/recent`. Re-log a whole meal by POSTing its `place` and `items` (or a row from `recentMeals`).
+
+`places` is `Home`, then curated restaurant brands (Panda Express first), then places he has used recently.
+
+A body with an `items` array is a meal. The same object works on `POST /api/bot/food` and `POST /api/bot/meals`. A body with `name` and `calories` and no `items` is still a single food and is stored as a one-item meal at `Home`. Older standalone food logs are copied into that same shape.
 
 Search results include `per100g`, `servings` (`label` and `grams`), and calories/macros for the first serving at quantity 1. Log that serving with `POST /api/bot/food`, or scale from `per100g`: nutrients × grams × quantity / 100. Sources are `restaurant` (curated menus in `data/restaurant-foods.ts`, listed first; Panda Express is the first chain), `usda` (generic and branded), and `openfoodfacts`. A restaurant hit uses the chain as `brand`. Results are cached. Barcode lookup tries Open Food Facts, then USDA branded foods. A miss is `{ "error": "No food found for that barcode" }` with status 404.
 
@@ -360,6 +370,15 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
   -d '{"name":"Chicken wrap","meal":"lunch","calories":680,"proteinG":42,"carbsG":62,"fatG":24}' \
   "$BASE/api/bot/food"
 ```
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"place":"McDonald'\''s","meal":"lunch","items":[{"name":"Cheeseburger","calories":300,"proteinG":15,"carbsG":32,"fatG":13},{"name":"Strawberry banana smoothie","calories":250,"proteinG":5,"carbsG":50,"fatG":3},{"name":"Large fry","calories":480,"proteinG":6,"carbsG":66,"fatG":22}]}' \
+  "$BASE/api/bot/meals"
+```
+
+Each item may also include `brand`, `grams`, `quantity` (default 1), `servingLabel`, and `sourceId` (a search hit id such as `restaurant:panda-express:broccoli-beef`). Calories and macros on an item are the line total, already scaled by quantity. `GET` responses include each meal with nested items and a flat `logs` list. Daily totals use the flat list.
 
 ### Workouts
 

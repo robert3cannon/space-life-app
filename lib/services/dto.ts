@@ -1,6 +1,6 @@
 import { round1 } from "../format";
-import type { events, foodLogs, reminders, workoutExercises, workoutSets, workouts } from "../db/schema";
-import type { EventDto, ExerciseDto, FoodDto, ReminderDto, SetDto, WorkoutDto } from "../types";
+import type { events, mealItems, meals, reminders, workoutExercises, workoutSets, workouts } from "../db/schema";
+import type { EventDto, ExerciseDto, FoodDto, MealItemDto, MealType, ReminderDto, SetDto, WorkoutDto } from "../types";
 
 export function serializeEvent(row: typeof events.$inferSelect): EventDto {
   return {
@@ -17,18 +17,42 @@ export function serializeEvent(row: typeof events.$inferSelect): EventDto {
   };
 }
 
-export function serializeFood(row: typeof foodLogs.$inferSelect): FoodDto {
+export function serializeMealItem(row: typeof mealItems.$inferSelect): MealItemDto {
   return {
     id: row.id,
     name: row.name,
-    meal: row.meal as FoodDto["meal"],
+    brand: row.brand,
     calories: row.calories,
     proteinG: round1(row.proteinG),
     carbsG: round1(row.carbsG),
     fatG: round1(row.fatG),
-    loggedAt: row.loggedAt.toISOString(),
-    notes: row.notes,
-    createdAt: row.createdAt.toISOString(),
+    grams: row.grams == null ? null : round1(row.grams),
+    quantity: round1(row.quantity),
+    servingLabel: row.servingLabel,
+    sourceId: row.sourceId,
+    position: row.position,
+  };
+}
+
+export function serializeFood(item: typeof mealItems.$inferSelect, meal: typeof meals.$inferSelect): FoodDto {
+  return {
+    id: item.id,
+    mealId: meal.id,
+    name: item.name,
+    brand: item.brand,
+    meal: meal.meal as MealType,
+    place: meal.place,
+    calories: item.calories,
+    proteinG: round1(item.proteinG),
+    carbsG: round1(item.carbsG),
+    fatG: round1(item.fatG),
+    grams: item.grams == null ? null : round1(item.grams),
+    quantity: round1(item.quantity),
+    servingLabel: item.servingLabel,
+    sourceId: item.sourceId,
+    loggedAt: meal.loggedAt.toISOString(),
+    notes: meal.notes,
+    createdAt: item.createdAt.toISOString(),
   };
 }
 

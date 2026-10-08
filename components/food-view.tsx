@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { MEAL_META } from "@/lib/constants";
 import { api } from "@/lib/client";
-import { foodHitLabel, scaleFood, type FoodHit } from "@/lib/food-catalog";
-import { dayNumber, formatLongDate, formatTime, formatWeekday } from "@/lib/format";
-import { addCalendarDays, getZonedParts } from "@/lib/time";
-import type { FoodDto, MealType, Targets } from "@/lib/types";
-import { BarcodeScan } from "./barcode-scan";
-import { Sheet } from "./sheet";
+import { dayNumber, formatLongDate, formatTime, formatWeekday, round1 } from "@/lib/format";
+import { addCalendarDays } from "@/lib/time";
+import type { FoodDto, MealDto, MealItemDto, Targets } from "@/lib/types";
+import { MealLogger } from "./meal-logger";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, Meter, PageTitle, Ring } from "./ui";
@@ -19,7 +17,10 @@ type DayPayload = {
   targets: Targets;
   totals: Targets;
   logs: FoodDto[];
+  meals: MealDto[];
   recent: FoodDto[];
+  recentMeals: MealDto[];
+  places: string[];
 };
 
 type WeekPayload = {
@@ -29,154 +30,39 @@ type WeekPayload = {
   targets: Targets;
 };
 
-type Draft = {
-  id?: string;
-  name: string;
-  meal: MealType;
-  calories: string;
-  proteinG: string;
-  carbsG: string;
-  fatG: string;
-  time: string;
-};
-
-const blank = (meal: MealType): Draft => ({
-  name: "",
-  meal,
-  calories: "",
-  proteinG: "",
-  carbsG: "",
-  fatG: "",
-  time: getZonedParts(new Date()).time,
-});
+function placeLabel(meal: MealDto) {
+  return meal.place?.trim() || "Home";
+}
 
 export function FoodView() {
   const [date, setDate] = useState<string | null>(null);
   const [mode, setMode] = useState<"day" | "week">("day");
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [hits, setHits] = useState<FoodHit[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchNote, setSearchNote] = useState<string | null>(null);
-  const [picked, setPicked] = useState<FoodHit | null>(null);
-  const [servingIndex, setServingIndex] = useState(0);
-  const [quantity, setQuantity] = useState("1");
-  const [scanning, setScanning] = useState(false);
-  const [lookingUp, setLookingUp] = useState(false);
-  const pickedName = useRef<string | null>(null);
-  const searchGen = useRef(0);
+  const [mealOpen, setMealOpen] = useState(false);
+  const [editing, setEditing] = useState<MealDto | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [confirmMeal, setConfirmMeal] = useState<string | null>(null);
+  const [confirmItem, setConfirmItem] = useState<string | null>(null);
   const toast = useToast();
   const dayPath = date ? `/api/food?date=${date}` : "/api/food";
   const day = useLoad<DayPayload>(dayPath);
   const active = day.data?.date ?? date ?? "";
   const week = useLoad<WeekPayload>(active ? `/api/food/summary?date=${active}` : "/api/food/summary");
 
-  function clearSearch() {
-    pickedName.current = null;
-    setHits([]);
-    setSearchNote(null);
-    setPicked(null);
-    setServingIndex(0);
-    setQuantity("1");
-    setScanning(false);
-    setSearching(false);
-  }
-
-  function openNew(meal: MealType = "snack") {
-    setFormError(null);
-    setConfirmDelete(false);
-    clearSearch();
-    setDraft(blank(meal));
-  }
-
-  function openEdit(log: FoodDto) {
-    setFormError(null);
-    setConfirmDelete(false);
-    clearSearch();
-    setDraft({
-      id: log.id,
-      name: log.name,
-      meal: log.meal,
-      calories: String(log.calories),
-      proteinG: String(log.proteinG),
-      carbsG: String(log.carbsG),
-      fatG: String(log.fatG),
-      time: getZonedParts(new Date(log.loggedAt)).time,
-    });
-  }
-
-  function applyHit(hit: FoodHit, index: number, qty: string) {
-    const serving = hit.servings[index] ?? hit.servings[0];
-    const amount = Number(qty);
-    if (!serving || !Number.isFinite(amount) || amount <= 0) return;
-    const nutrients = scaleFood(hit.per100g, serving.grams, amount);
-    const label = foodHitLabel(hit);
-    pickedName.current = label;
-    setPicked(hit);
-    setServingIndex(index);
-    setQuantity(qty);
-    setHits([]);
-    setSearchNote(null);
-    setDraft((current) =>
-      current
-        ? {
-            ...current,
-            name: label,
-            calories: String(nutrients.calories),
-            proteinG: String(nutrients.proteinG),
-            carbsG: String(nutrients.carbsG),
-            fatG: String(nutrients.fatG),
-          }
-        : current,
-    );
-  }
-
-  const draftName = draft?.name ?? "";
-  const editing = Boolean(draft?.id);
   useEffect(() => {
-    if (!draftName || editing || scanning) return;
-    const query = draftName.trim();
-    if (query.length < 2 || query === pickedName.current) {
-      if (query.length < 2) setHits([]);
-      return;
+    if (new URLSearchParams(window.location.search).get("log") === "meal") {
+      setEditing(null);
+      setMealOpen(true);
     }
-    const gen = ++searchGen.current;
-    const handle = window.setTimeout(() => {
-      void (async () => {
-        setSearching(true);
-        setSearchNote(null);
-        try {
-          const result = await api<{ foods: FoodHit[] }>(`/api/food/search?q=${encodeURIComponent(query)}&limit=6`);
-          if (gen !== searchGen.current || pickedName.current === query) return;
-          setHits(result.foods);
-          setSearchNote(result.foods.length ? null : "No database match. Enter the numbers yourself.");
-        } catch (err) {
-          if (gen !== searchGen.current) return;
-          setHits([]);
-          setSearchNote(err instanceof Error ? err.message : "Search failed");
-        } finally {
-          if (gen === searchGen.current) setSearching(false);
-        }
-      })();
-    }, 300);
-    return () => window.clearTimeout(handle);
-  }, [draftName, editing, scanning]);
+  }, []);
 
-  async function lookupCode(code: string) {
-    setScanning(false);
-    setLookingUp(true);
-    setFormError(null);
-    try {
-      const result = await api<{ food: FoodHit }>(`/api/food/barcode?code=${encodeURIComponent(code)}`);
-      applyHit(result.food, 0, "1");
-      toast(`Found ${foodHitLabel(result.food)}`);
-    } catch (err) {
-      setSearchNote(err instanceof Error ? err.message : "No food found for that barcode");
-    } finally {
-      setLookingUp(false);
-    }
+  function openLog(meal: MealDto | null = null) {
+    setEditing(meal);
+    setMealOpen(true);
+  }
+
+  async function refresh() {
+    await day.reload();
+    if (mode === "week") await week.reload();
   }
 
   async function relog(food: FoodDto) {
@@ -193,58 +79,82 @@ export function FoodView() {
         }),
       });
       toast(`Logged ${food.name}`);
-      await day.reload();
+      await refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't log");
     }
   }
 
-  async function save() {
-    if (!draft || !day.data) return;
-    setSaving(true);
-    setFormError(null);
-    const payload = {
-      name: draft.name,
-      meal: draft.meal,
-      calories: Number(draft.calories),
-      proteinG: Number(draft.proteinG || 0),
-      carbsG: Number(draft.carbsG || 0),
-      fatG: Number(draft.fatG || 0),
-      date: day.data.date,
-      time: draft.time,
-    };
-    if ([payload.calories, payload.proteinG, payload.carbsG, payload.fatG].some((value) => Number.isNaN(value))) {
-      setFormError("Use numbers for calories and macros");
-      setSaving(false);
-      return;
-    }
+  async function relogMeal(meal: MealDto) {
     try {
-      if (draft.id) await api(`/api/food/${draft.id}`, { method: "PATCH", body: JSON.stringify(payload) });
-      else await api("/api/food", { method: "POST", body: JSON.stringify(payload) });
-      setDraft(null);
-      toast(draft.id ? "Updated" : "Logged");
-      await day.reload();
-      if (mode === "week") await week.reload();
+      await api("/api/meals", {
+        method: "POST",
+        body: JSON.stringify({
+          place: placeLabel(meal),
+          meal: meal.meal,
+          items: meal.items.map((item) => ({
+            name: item.name,
+            brand: item.brand,
+            calories: item.calories,
+            proteinG: item.proteinG,
+            carbsG: item.carbsG,
+            fatG: item.fatG,
+            grams: item.grams,
+            quantity: item.quantity,
+            servingLabel: item.servingLabel,
+            sourceId: item.sourceId,
+          })),
+        }),
+      });
+      toast(`Logged ${placeLabel(meal)}`);
+      await refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Couldn't save");
-    } finally {
-      setSaving(false);
+      toast(err instanceof Error ? err.message : "Couldn't log");
     }
   }
 
-  async function remove() {
-    if (!draft?.id) return;
-    if (!confirmDelete) {
-      setConfirmDelete(true);
+  async function removeMeal(meal: MealDto) {
+    if (confirmMeal !== meal.id) {
+      setConfirmMeal(meal.id);
       return;
     }
-    await api(`/api/food/${draft.id}`, { method: "DELETE" });
-    setDraft(null);
-    toast("Removed");
-    await day.reload();
+    await api(`/api/meals/${meal.id}`, { method: "DELETE" });
+    setConfirmMeal(null);
+    if (expanded === meal.id) setExpanded(null);
+    toast("Meal removed");
+    await refresh();
+  }
+
+  async function removeItem(meal: MealDto, item: MealItemDto) {
+    if (confirmItem !== item.id) {
+      setConfirmItem(item.id);
+      return;
+    }
+    await api(`/api/meals/${meal.id}/items/${item.id}`, { method: "DELETE" });
+    setConfirmItem(null);
+    toast(`Removed ${item.name}`);
+    await refresh();
+  }
+
+  async function changeQty(meal: MealDto, item: MealItemDto, direction: -1 | 1) {
+    const next = round1(item.quantity + direction);
+    if (next <= 0 || item.quantity <= 0) return;
+    const factor = next / item.quantity;
+    await api(`/api/meals/${meal.id}/items/${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        quantity: next,
+        calories: Math.max(0, Math.round(item.calories * factor)),
+        proteinG: round1(item.proteinG * factor),
+        carbsG: round1(item.carbsG * factor),
+        fatG: round1(item.fatG * factor),
+      }),
+    });
+    await refresh();
   }
 
   const maxBar = Math.max(1, ...(week.data?.days.map((item) => item.calories) ?? [1]));
+  const meals = day.data?.meals ?? [];
 
   return (
     <main className="page with-fab">
@@ -276,9 +186,24 @@ export function FoodView() {
               </div>
             </div>
           </section>
+          <button className="btn" data-testid="log-meal" type="button" style={{ marginTop: 14 }} onClick={() => openLog(null)}>
+            Log a meal
+          </button>
+          {day.data.recentMeals.length ? (
+            <>
+              <div className="section-title"><h2>Recent meals</h2></div>
+              <div className="chips">
+                {day.data.recentMeals.map((meal) => (
+                  <button key={meal.id} className="chip" type="button" onClick={() => void relogMeal(meal)}>
+                    {placeLabel(meal)} · {meal.itemCount} · {meal.totals.calories}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
           {day.data.recent.length ? (
             <>
-              <div className="section-title"><h2>Recent</h2></div>
+              <div className="section-title"><h2>Recent foods</h2></div>
               <div className="chips">
                 {day.data.recent.map((food) => (
                   <button key={food.id} className="chip" type="button" onClick={() => void relog(food)}>
@@ -288,29 +213,61 @@ export function FoodView() {
               </div>
             </>
           ) : null}
-          {(["breakfast", "lunch", "dinner", "snack"] as MealType[]).map((meal) => {
-            const logs = day.data!.logs.filter((log) => log.meal === meal);
-            return (
-              <section key={meal}>
-                <div className="section-title">
-                  <h2>{MEAL_META[meal].label}</h2>
-                  <button className="text-btn" type="button" onClick={() => openNew(meal)}>Add</button>
-                </div>
-                <div className="stack">
-                  {logs.length === 0 ? <p className="faint">Nothing yet.</p> : null}
-                  {logs.map((log) => (
-                    <button key={log.id} className="event" type="button" onClick={() => openEdit(log)}>
-                      <time className="num">{log.calories}</time>
-                      <div>
-                        <strong>{log.name}</strong>
-                        <span>{log.proteinG}p · {log.carbsG}c · {log.fatG}f · {formatTime(log.loggedAt)}</span>
+          <div className="section-title"><h2>Meals</h2></div>
+          <div className="stack">
+            {meals.length === 0 ? <p className="faint">Nothing yet. Log a meal from wherever you are.</p> : null}
+            {meals.map((meal) => {
+              const open = expanded === meal.id;
+              return (
+                <article key={meal.id} className="meal-card" data-testid="meal-card" data-place={placeLabel(meal)}>
+                  <button
+                    className="meal-toggle"
+                    type="button"
+                    data-testid="meal-expand"
+                    aria-expanded={open}
+                    onClick={() => setExpanded(open ? null : meal.id)}
+                  >
+                    <div>
+                      <strong>{placeLabel(meal)}</strong>
+                      <span>
+                        {formatTime(meal.loggedAt)} · {MEAL_META[meal.meal].label} · {meal.itemCount} {meal.itemCount === 1 ? "item" : "items"}
+                      </span>
+                      <span>{meal.totals.proteinG}p · {meal.totals.carbsG}c · {meal.totals.fatG}f</span>
+                    </div>
+                    <b className="meal-kcal num">{meal.totals.calories}</b>
+                  </button>
+                  {open ? (
+                    <div className="meal-body">
+                      {meal.items.map((item) => (
+                        <div key={item.id} className="meal-line" data-testid="meal-item">
+                          <div>
+                            <strong>{item.quantity === 1 ? item.name : `${item.quantity} × ${item.name}`}</strong>
+                            <span>
+                              {item.brand ? `${item.brand} · ` : ""}
+                              {item.calories} kcal · {item.proteinG}p · {item.carbsG}c · {item.fatG}f
+                            </span>
+                          </div>
+                          <div className="row">
+                            <button className="meal-qty" type="button" aria-label={`Less ${item.name}`} onClick={() => void changeQty(meal, item, -1)}>−</button>
+                            <button className="meal-qty" type="button" aria-label={`More ${item.name}`} onClick={() => void changeQty(meal, item, 1)}>+</button>
+                            <button className="text-btn" type="button" onClick={() => void removeItem(meal, item)}>
+                              {confirmItem === item.id ? "Delete item?" : "Delete"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="meal-actions">
+                        <button className="btn-ghost" type="button" onClick={() => openLog(meal)}>Edit meal</button>
+                        <button className="btn-danger" type="button" onClick={() => void removeMeal(meal)}>
+                          {confirmMeal === meal.id ? "Tap again to delete" : "Delete meal"}
+                        </button>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
         </>
       ) : null}
       {mode === "week" && week.data ? (
@@ -336,76 +293,15 @@ export function FoodView() {
         </section>
       ) : null}
       {mode === "week" && week.error ? <ErrorNote message={week.error} onRetry={week.reload} /> : null}
-      <button className="fab" type="button" onClick={() => openNew("snack")} aria-label="Log food">+</button>
-      <Sheet open={Boolean(draft)} title={scanning ? "Scan barcode" : draft?.id ? "Edit food" : "Log food"} onClose={() => setDraft(null)}>
-        {draft && scanning ? <BarcodeScan onCode={(code) => void lookupCode(code)} onCancel={() => setScanning(false)} /> : null}
-        {draft && !scanning ? (
-          <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-            <label className="field">
-              <span>Name</span>
-              <input value={draft.name} placeholder={draft.id ? "" : "Search banana, Chipotle bowl…"} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
-            </label>
-            {draft.id ? null : (
-              <button className="btn-ghost" style={{ marginBottom: 12 }} type="button" onClick={() => setScanning(true)}>
-                {lookingUp ? "Looking up…" : "Scan barcode"}
-              </button>
-            )}
-            {searching ? <p className="faint">Searching…</p> : null}
-            {hits.length ? (
-              <div className="stack" style={{ marginBottom: 12 }}>
-                {hits.map((hit) => (
-                  <button key={hit.id} className="event" type="button" onClick={() => applyHit(hit, 0, "1")}>
-                    <time className="num">{hit.calories}</time>
-                    <div>
-                      <strong>
-                        {foodHitLabel(hit)}
-                        {hit.source === "restaurant" ? <em className="pill" data-type="meal">Restaurant</em> : null}
-                      </strong>
-                      <span>{hit.source === "usda" ? "USDA" : hit.source === "restaurant" ? "Restaurant" : "Open Food Facts"} · {hit.servings[0]?.label}</span>
-                      {hit.note ? <span className="food-note">{hit.note}</span> : null}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {searchNote ? <p className="muted" style={{ marginTop: 0 }}>{searchNote}</p> : null}
-            {picked ? (
-              <div className="grid-2">
-                <label className="field">
-                  <span>Serving</span>
-                  <select value={servingIndex} onChange={(event) => applyHit(picked, Number(event.target.value), quantity)}>
-                    {picked.servings.map((serving, index) => (
-                      <option key={`${serving.label}-${serving.grams}`} value={index}>{serving.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Quantity</span>
-                  <input inputMode="decimal" value={quantity} onChange={(event) => { setQuantity(event.target.value); applyHit(picked, servingIndex, event.target.value); }} />
-                </label>
-              </div>
-            ) : null}
-            <label className="field">
-              <span>Meal</span>
-              <select value={draft.meal} onChange={(event) => setDraft({ ...draft, meal: event.target.value as MealType })}>
-                {Object.entries(MEAL_META).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}
-              </select>
-            </label>
-            <div className="grid-2">
-              <label className="field"><span>Calories</span><input inputMode="numeric" value={draft.calories} onChange={(event) => setDraft({ ...draft, calories: event.target.value })} required /></label>
-              <label className="field"><span>Time</span><input type="time" value={draft.time} onChange={(event) => setDraft({ ...draft, time: event.target.value })} required /></label>
-            </div>
-            <div className="grid-2">
-              <label className="field"><span>Protein (g)</span><input inputMode="decimal" value={draft.proteinG} onChange={(event) => setDraft({ ...draft, proteinG: event.target.value })} /></label>
-              <label className="field"><span>Carbs (g)</span><input inputMode="decimal" value={draft.carbsG} onChange={(event) => setDraft({ ...draft, carbsG: event.target.value })} /></label>
-            </div>
-            <label className="field"><span>Fat (g)</span><input inputMode="decimal" value={draft.fatG} onChange={(event) => setDraft({ ...draft, fatG: event.target.value })} /></label>
-            {formError ? <p className="err">{formError}</p> : null}
-            <button className="btn" disabled={saving} type="submit">{saving ? "Saving…" : "Save"}</button>
-            {draft.id ? <button className="btn-danger" style={{ marginTop: 8 }} type="button" onClick={() => void remove()}>{confirmDelete ? "Tap again to delete" : "Delete"}</button> : null}
-          </form>
-        ) : null}
-      </Sheet>
+      <button className="fab" type="button" onClick={() => openLog(null)} aria-label="Log a meal">+</button>
+      <MealLogger
+        open={mealOpen}
+        date={day.data?.date ?? active}
+        places={day.data?.places ?? ["Home"]}
+        meal={editing}
+        onClose={() => setMealOpen(false)}
+        onSaved={refresh}
+      />
     </main>
   );
 }

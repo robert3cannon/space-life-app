@@ -5,7 +5,7 @@ import { addCalendarDays, getZonedParts, todayDateString, zonedDateTimeToUtc, zo
 import type { TodayPayload } from "../types";
 import { listActivity } from "./activity";
 import { listEvents, nextEvent } from "./events";
-import { listFood, sumFood } from "./food";
+import { foodWindow, sumFood } from "./food";
 import { habitsDue } from "./habits";
 import { healthForDate } from "./health";
 import { upcomingReminders } from "./reminders";
@@ -18,11 +18,11 @@ export async function getToday(now = new Date()): Promise<TodayPayload> {
   const date = todayDateString(now);
   const day = zonedDayRange(date);
   const horizon = zonedDateTimeToUtc(addCalendarDays(date, 8), "00:00");
-  const [prefs, events, focusEvent, logs, workouts, nextWorkout, reminders, activity, water, sleep, habits, health] = await Promise.all([
+  const [prefs, events, focusEvent, food, workouts, nextWorkout, reminders, activity, water, sleep, habits, health] = await Promise.all([
     getSettings(),
     listEvents(day.from, day.to),
     nextEvent(now, horizon),
-    listFood(day.from, day.to),
+    foodWindow(day.from, day.to),
     workoutsOnDay(day.from, day.to),
     nextPlannedWorkout(now),
     upcomingReminders(4),
@@ -67,8 +67,9 @@ export async function getToday(now = new Date()): Promise<TodayPayload> {
     focus,
     food: {
       targets: prefs.targets,
-      totals: sumFood(logs),
-      logs,
+      totals: sumFood(food.logs),
+      logs: food.logs,
+      meals: food.meals,
     },
     workouts,
     nextWorkout,

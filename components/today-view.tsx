@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { EVENT_META, MEAL_META } from "@/lib/constants";
+import { EVENT_META } from "@/lib/constants";
 import { api } from "@/lib/client";
 import { formatAgo, formatHours, formatTime, formatTimeRange } from "@/lib/format";
 import type { HabitSummary, TodayPayload, WorkoutDto } from "@/lib/types";
@@ -72,7 +72,7 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
 
       <div className="section-title">
         <h2>Fuel</h2>
-        <Link href="/food">Log</Link>
+        <Link href="/food?log=meal">Log a meal</Link>
       </div>
       <section className="card">
         <div className="fuel">
@@ -83,14 +83,23 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
             <Meter label="Fat" value={data.food.totals.fatG} max={data.food.targets.fatG} unit="g" tone="fat" />
           </div>
         </div>
-        {data.food.logs.length ? (
-          <p className="faint" style={{ margin: "10px 0 0" }}>
-            {data.food.logs.map((log) => MEAL_META[log.meal].label).filter((value, index, all) => all.indexOf(value) === index).join(" · ")} logged
-          </p>
-        ) : (
-          <p className="faint" style={{ margin: "10px 0 0" }}>Nothing logged yet today.</p>
-        )}
+        {data.food.meals.length ? null : <p className="faint" style={{ margin: "10px 0 0" }}>Nothing logged yet today.</p>}
       </section>
+      {data.food.meals.length ? (
+        <div className="stack" style={{ marginTop: 10 }}>
+          {data.food.meals.map((meal) => (
+            <Link key={meal.id} href="/food" className="event" data-testid="today-meal" data-place={meal.place?.trim() || "Home"}>
+              <time className="num">{meal.totals.calories}</time>
+              <div>
+                <strong>{meal.place?.trim() || "Home"}</strong>
+                <span>
+                  {formatTime(meal.loggedAt)} · {meal.itemCount} {meal.itemCount === 1 ? "item" : "items"} · {meal.totals.proteinG}p · {meal.totals.carbsG}c · {meal.totals.fatG}f
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
       <div className="section-title">
         <h2>Wellness</h2>

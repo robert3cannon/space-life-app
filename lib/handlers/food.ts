@@ -4,17 +4,21 @@ import { HttpError } from "../errors";
 import { routeId } from "../ids";
 import { parseRange, requireDate } from "../query";
 import { lookupBarcode, searchFoods } from "../services/food-catalog";
-import { createFood, deleteFood, foodSummary, getFoodLog, listFood, recentFoods, sumFood, updateFood } from "../services/food";
+import { createFood, createMeal, deleteFood, foodSummary, foodWindow, getFoodLog, placeSuggestions, recentFoods, recentMeals, sumFood, updateFood } from "../services/food";
 import { getSettings } from "../services/settings";
 import { todayDateString, zonedDayRange } from "../time";
-import { foodCreateSchema, foodPatchSchema } from "../validation";
+import { foodCreateSchema, foodPatchSchema, mealCreateSchema } from "../validation";
+
+function isMealBody(body: unknown) {
+  return Boolean(body && typeof body === "object" && "items" in body && Array.isArray((body as { items: unknown }).items));
+}
 
 export async function getFood(req: Request) {
   const url = new URL(req.url);
   const today = todayDateString();
   if (url.searchParams.get("from") || url.searchParams.get("to")) {
     const range = parseRange(url);
-    const logs = await listFood(range.from, range.to);
+    const { logs, meals } = await foodWindow(range.from, range.to);
     const prefs = await getSettings();
     return json({
       timezone: TIMEZONE,
@@ -24,11 +28,18 @@ export async function getFood(req: Request) {
       targets: prefs.targets,
       totals: sumFood(logs),
       logs,
+      meals,
     });
   }
   const date = requireDate(url.searchParams.get("date"), today);
   const day = zonedDayRange(date);
-  const [logs, prefs, recent] = await Promise.all([listFood(day.from, day.to), getSettings(), recentFoods()]);
+  const [{ logs, meals }, prefs, recent, recentMealList, places] = await Promise.all([
+    foodWindow(day.from, day.to),
+    getSettings(),
+    recentFoods(),
+    recentMeals(),
+    placeSuggestions(),
+  ]);
   return json({
     timezone: TIMEZONE,
     today,
@@ -36,13 +47,17 @@ export async function getFood(req: Request) {
     targets: prefs.targets,
     totals: sumFood(logs),
     logs,
+    meals,
     recent,
+    recentMeals: recentMealList,
+    places,
   });
 }
 
 export async function postFood(req: Request) {
-  const input = foodCreateSchema.parse(await readJson(req));
-  return json(await createFood(input), 201);
+  const body = await readJson(req);
+  if (isMealBody(body)) return json(await createMeal(mealCreateSchema.parse(body)), 201);
+  return json(await createFood(foodCreateSchema.parse(body)), 201);
 }
 
 export async function getFoodById(_req: Request, ctx: { params: Promise<{ id: string }> }) {

@@ -35,6 +35,36 @@ export const foodCreateSchema = z.object({
 
 export const foodPatchSchema = foodCreateSchema.partial();
 
+export const mealItemWriteSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(160),
+  brand: z.string().trim().max(80).nullable().optional(),
+  calories: z.number().int().min(0).max(20000),
+  proteinG: z.number().min(0).max(2000).optional(),
+  carbsG: z.number().min(0).max(2000).optional(),
+  fatG: z.number().min(0).max(2000).optional(),
+  grams: z.number().min(0).max(20000).nullable().optional(),
+  quantity: z.number().positive().max(100).optional(),
+  servingLabel: z.string().trim().max(120).nullable().optional(),
+  sourceId: z.string().trim().max(180).nullable().optional(),
+});
+
+export const mealCreateSchema = z.object({
+  place: z.string().trim().min(1).max(80),
+  meal: z.enum(MEALS).optional(),
+  loggedAt: z.string().min(1).optional(),
+  date: dateField.optional(),
+  time: timeField.optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  items: z.array(mealItemWriteSchema).min(1).max(30),
+});
+
+export const mealPatchSchema = mealCreateSchema.partial().extend({
+  items: z.array(mealItemWriteSchema).min(1).max(30).optional(),
+});
+
+export const mealItemPatchSchema = mealItemWriteSchema.omit({ id: true }).partial();
+
 const setSchema = z.object({
   reps: z.number().int().min(0).max(1000).nullable().optional(),
   weight: z.number().min(0).max(5000).nullable().optional(),
@@ -262,6 +292,10 @@ export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type EventPatch = z.infer<typeof eventPatchSchema>;
 export type FoodCreate = z.infer<typeof foodCreateSchema>;
 export type FoodPatch = z.infer<typeof foodPatchSchema>;
+export type MealItemWrite = z.infer<typeof mealItemWriteSchema>;
+export type MealCreate = z.infer<typeof mealCreateSchema>;
+export type MealPatch = z.infer<typeof mealPatchSchema>;
+export type MealItemPatch = z.infer<typeof mealItemPatchSchema>;
 export type CircuitSchedule = z.infer<typeof circuitScheduleSchema>;
 export type CircuitComplete = z.infer<typeof circuitCompleteSchema>;
 export type WorkoutCreate = z.infer<typeof workoutCreateSchema>;

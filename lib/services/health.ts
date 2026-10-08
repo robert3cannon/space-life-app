@@ -2,7 +2,6 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "../db";
 import {
-  foodLogs,
   healthDays,
   healthExports,
   healthSync,
@@ -18,6 +17,7 @@ import { healthActivityExercise } from "../health-activity";
 import { parseHealthPayload, type HealthDayMetrics, type ParsedWorkout } from "../health-parse";
 import { TIMEZONE } from "../constants";
 import { round1 } from "../format";
+import { foodWindow } from "./food";
 import { todayDateString, zonedDayRange } from "../time";
 import { reconcileAutoHabits } from "./habits";
 
@@ -243,16 +243,16 @@ export async function healthStatus() {
   };
 }
 
-function foodExport(row: typeof foodLogs.$inferSelect) {
+function foodExport(row: { id: string; name: string; meal: string; calories: number; proteinG: number; carbsG: number; fatG: number; loggedAt: string }) {
   return {
     id: row.id,
     name: row.name,
     meal: row.meal,
     calories: row.calories,
-    proteinG: round1(row.proteinG),
-    carbsG: round1(row.carbsG),
-    fatG: round1(row.fatG),
-    loggedAt: row.loggedAt.toISOString(),
+    proteinG: row.proteinG,
+    carbsG: row.carbsG,
+    fatG: row.fatG,
+    loggedAt: row.loggedAt,
   };
 }
 
@@ -267,19 +267,15 @@ function waterExport(row: typeof waterLogs.$inferSelect) {
 export async function healthExport(date = todayDateString()) {
   const day = zonedDayRange(date);
   const db = getDb();
-  const [foodRows, waterRows] = await Promise.all([
-    db
-      .select()
-      .from(foodLogs)
-      .where(and(gte(foodLogs.loggedAt, day.from), lt(foodLogs.loggedAt, day.to)))
-      .orderBy(asc(foodLogs.loggedAt)),
+  const [{ logs, meals }, waterRows] = await Promise.all([
+    foodWindow(day.from, day.to),
     db
       .select()
       .from(waterLogs)
       .where(and(gte(waterLogs.loggedAt, day.from), lt(waterLogs.loggedAt, day.to)))
       .orderBy(asc(waterLogs.loggedAt)),
   ]);
-  const foodIds = foodRows.map((row) => row.id);
+  const foodIds = logs.map((row) => row.id);
   const waterIds = waterRows.map((row) => row.id);
   const [ackedFood, ackedWater] = await Promise.all([
     foodIds.length
@@ -300,7 +296,8 @@ export async function healthExport(date = todayDateString()) {
   return {
     date,
     timezone: TIMEZONE,
-    food: foodRows.filter((row) => !foodDone.has(row.id)).map(foodExport),
+    food: logs.filter((row) => !foodDone.has(row.id)).map(foodExport),
+    meals,
     water: waterRows.filter((row) => !waterDone.has(row.id)).map(waterExport),
   };
 }

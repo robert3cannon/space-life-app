@@ -1,6 +1,6 @@
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "../db";
-import { foodLogs, habitChecks, habits, healthDays, waterLogs, workouts } from "../db/schema";
+import { habitChecks, habits, healthDays, mealItems, meals, waterLogs, workouts } from "../db/schema";
 import { HttpError } from "../errors";
 import { round1 } from "../format";
 import { STEPS_AUTO_GOAL } from "../health-activity";
@@ -8,6 +8,7 @@ import { habitStreaks, isScheduled, scheduledDays } from "../streaks";
 import { addCalendarDays, getZonedParts, todayDateString, zonedDayRange } from "../time";
 import type { HabitAuto, HabitSummary } from "../types";
 import type { HabitCheckInput, HabitCreate, HabitPatch } from "../validation";
+import { ensureMeals } from "./food";
 import { getSettings } from "./settings";
 
 const HISTORY_DAYS = 180;
@@ -47,11 +48,13 @@ export async function reconcileAutoHabits(through = todayDateString()) {
     to: zonedDayRange(addCalendarDays(through, 1)).from,
   };
   const prefs = await getSettings();
+  await ensureMeals();
   const [foodRows, waterRows, workoutRows, checkRows, healthRows] = await Promise.all([
     db
-      .select({ proteinG: foodLogs.proteinG, loggedAt: foodLogs.loggedAt })
-      .from(foodLogs)
-      .where(and(gte(foodLogs.loggedAt, range.from), lt(foodLogs.loggedAt, range.to))),
+      .select({ proteinG: mealItems.proteinG, loggedAt: meals.loggedAt })
+      .from(mealItems)
+      .innerJoin(meals, eq(mealItems.mealId, meals.id))
+      .where(and(gte(meals.loggedAt, range.from), lt(meals.loggedAt, range.to))),
     db
       .select({ ounces: waterLogs.ounces, loggedAt: waterLogs.loggedAt })
       .from(waterLogs)

@@ -275,6 +275,60 @@ a.chip { color: var(--text); text-decoration: none; }
 .event span { color: var(--faint); font-size: 13px; line-height: 1.4; }
 .event.past { opacity: 0.55; }
 .event small { color: var(--cyan); }
+.meal-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+.meal-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+.meal-toggle strong, .meal-line strong { display: block; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.meal-toggle span, .meal-line span { color: var(--faint); font-size: 13px; line-height: 1.4; }
+.meal-toggle span { display: block; }
+.meal-kcal { font-variant-numeric: tabular-nums; font-weight: 650; }
+.meal-body { padding: 0 14px 12px; }
+.meal-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding-top: 8px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.meal-line .field { margin-bottom: 0; }
+.meal-qty {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+}
+.meal-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.meal-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 0 14px;
+  font-variant-numeric: tabular-nums;
+}
+.meal-total b { font-size: 22px; font-weight: 650; }
+.cart-line { flex-direction: column; align-items: stretch; background: rgba(255, 255, 255, 0.03); border: 0; border-radius: 16px; padding: 10px 12px; margin-top: 0; }
+.cart-line .row { justify-content: space-between; }
 
 .fuel { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: center; }
 .ring { width: 108px; height: 108px; }

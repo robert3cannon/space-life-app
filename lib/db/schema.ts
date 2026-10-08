@@ -27,6 +27,34 @@ export const foodLogs = pgTable("food_logs", {
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
 
+export const meals = pgTable("meals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  place: text("place"),
+  meal: text("meal").notNull(),
+  loggedAt: timestamp("logged_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const mealItems = pgTable("meal_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  mealId: uuid("meal_id")
+    .notNull()
+    .references(() => meals.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  brand: text("brand"),
+  calories: integer("calories").notNull(),
+  proteinG: doublePrecision("protein_g").notNull().default(0),
+  carbsG: doublePrecision("carbs_g").notNull().default(0),
+  fatG: doublePrecision("fat_g").notNull().default(0),
+  grams: doublePrecision("grams"),
+  quantity: doublePrecision("quantity").notNull().default(1),
+  servingLabel: text("serving_label"),
+  sourceId: text("source_id"),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
 export const workouts = pgTable("workouts", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
