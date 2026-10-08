@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import postgres from "postgres";
+import { resolveDatabaseUrl } from "../lib/db/url";
 import { loadLocalEnv } from "./load-env";
 
 loadLocalEnv();
@@ -14,8 +15,8 @@ function statements(sql: string) {
 }
 
 export async function migrate() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
+  const { url, source } = resolveDatabaseUrl(process.env, "migrate");
+  console.log(`migrations: ${source}`);
   const sql = postgres(url, { prepare: false, max: 1 });
   try {
     await sql`

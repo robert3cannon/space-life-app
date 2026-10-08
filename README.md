@@ -9,7 +9,7 @@ Times are **America/Detroit** (Eastern). The sample week assumes late starts (br
 - Next.js (App Router) and React, deployed on Vercel
 - Postgres (Neon, Vercel Postgres, or any Postgres `DATABASE_URL`) via Drizzle and `postgres`
 - Web Push with VAPID (`web-push`) and a service worker
-- Vercel Cron hits `/api/cron/dispatch` to send due reminders
+- Reminders are sent by `GET /api/cron/dispatch`. Vercel Hobby can call that once a day. On-time delivery uses a free external pinger every 5 minutes.
 
 ## Local setup
 
@@ -35,14 +35,15 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with `APP_PASSWO
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection string. On Neon, use the **pooled** URL. The app disables prepared statements so pooled connections work. |
+| `DATABASE_URL` | yes | Pooled Postgres URL. The Neon integration sets this. If it is empty, the app uses `POSTGRES_URL`, then `POSTGRES_PRISMA_URL`. Prepared statements are off so the pooler works. |
 | `APP_PASSWORD` | yes | The only UI passcode. Use a long random string. There is no signup. |
 | `SESSION_SECRET` | yes | HMAC key for the `orbit_session` cookie. `openssl rand -base64 32` |
 | `BOT_API_TOKEN` | yes | Bearer token for `/api/bot/*`. |
 | `VAPID_PUBLIC_KEY` | for push | URL-safe base64 public key. |
 | `VAPID_PRIVATE_KEY` | for push | URL-safe base64 private key. Never commit this. |
 | `VAPID_SUBJECT` | for push | `mailto:you@example.com` or an `https://` contact URL. Required by the Web Push spec. |
-| `CRON_SECRET` | for reminders | Bearer token for `/api/cron/dispatch`. Vercel sends it automatically when this variable is set. |
+| `DATABASE_URL_UNPOOLED` | for deploy | Direct Neon URL. Migrations use it when it is set. The pooler is a poor fit for that transaction. The Neon integration sets this. `POSTGRES_URL_NON_POOLING` is accepted too. |
+| `CRON_SECRET` | for reminders | Bearer token for `/api/cron/dispatch`. Vercel Cron sends it when this variable is set. cron-job.org must send the same header. |
 | `USER_NAME` | no | Greeting name. Defaults to Robert. |
 | `ALLOW_SEED` | no | Set to `1` to allow `npm run seed` against production. |
 | `USDA_API_KEY` | no | FoodData Central key for food search and barcodes. If unset, the app uses `DEMO_KEY`, which is heavily rate limited. Get a free key at [fdc.nal.usda.gov/api-key-signup](https://fdc.nal.usda.gov/api-key-signup). |
@@ -71,20 +72,45 @@ On Vercel the install uses `vercel-build`, which migrates and then builds. Seed 
 
 ## Deploy to Vercel
 
-1. Create a Postgres database (Neon or Vercel Postgres) and copy the pooled connection string.
-2. Import this GitHub repo into Vercel. Framework preset: Next.js.
-3. Set every required variable above. `vercel-build` runs migrations during deploy, so `DATABASE_URL` must be present at build time.
-4. `vercel.json` registers a cron: `GET /api/cron/dispatch` every 5 minutes. Vercel adds `Authorization: Bearer $CRON_SECRET` when `CRON_SECRET` is set.
-5. Deploy, open the HTTPS URL, sign in, and install it on the iPhone (below).
+1. Import this GitHub repo. Framework preset: Next.js. Production branch: `main`.
+2. Connect Neon with Vercel's Neon integration. It sets `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct), plus the older `POSTGRES_URL` names. Leave `POSTGRES_URL_NO_SSL` unused. Queries from the app use the pooled URL. `vercel-build` runs migrations before `next build` and uses the unpooled URL when that variable is present, so both must be available to the Production build.
+3. Set `APP_PASSWORD`, `SESSION_SECRET`, `BOT_API_TOKEN`, `CRON_SECRET`, and the three VAPID variables. `HEALTH_SYNC_TOKEN` is optional. `USDA_API_KEY` is optional and avoids the shared demo food-search limit.
+4. Deploy. The production database gets the schema only. Seed does not run.
+5. Open the production HTTPS URL, sign in, and install it on the iPhone (below).
+6. Create the cron-job.org job in the next section. Until that exists, reminders are only checked by the daily Vercel cron.
 
-**Vercel Hobby cron only runs once per day**, which is too coarse for "30 minutes before class." On Hobby, point any external scheduler (a second cron host you control) at the same URL every few minutes:
+`vercel.json` schedules `GET /api/cron/dispatch` once a day at 15:00 UTC (11:00 AM Detroit during daylight time, 10:00 AM during standard time). Hobby rejects anything more frequent, and Hobby may run that job any time during the 15:00 hour. It is a catch-up. A class reminder 30 minutes ahead needs the 5-minute pinger.
+
+Each dispatch creates missing meal and wellness reminders, sends every pending reminder whose time has arrived, and drops push subscriptions the browser has expired (HTTP 404 or 410). If every subscription fails for a temporary reason, the reminder stays pending and the next run tries again. A successful call returns HTTP 200 and JSON with `"ok": true`.
+
+### On-time reminders with cron-job.org
+
+Vercel Hobby cannot call the dispatch route every few minutes. [cron-job.org](https://console.cron-job.org) is free and can. Do this after the first production deploy, using the production URL (a `*.vercel.app` URL or the custom domain), not a preview URL.
+
+1. Create a free account at [console.cron-job.org](https://console.cron-job.org).
+2. Choose **Create cronjob**.
+3. Title: `Orbit reminders`.
+4. URL: `https://YOUR_PRODUCTION_DOMAIN/api/cron/dispatch`
+5. Schedule, in the job's timezone (America/Detroit is fine):
+   - Minutes: `0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55` (every 5 minutes)
+   - Hours: every hour
+   - Days of month, months, and weekdays: every
+6. Request method: **GET**.
+7. Open the headers section and add one header. Name: `Authorization`. Value: `Bearer ` followed by the `CRON_SECRET` value from Vercel, with a single space after Bearer. Do not put the secret in the URL.
+8. Save the job and leave it enabled.
+9. Use **Run now**. The history should show HTTP 200 and a body that includes `"ok": true`.
+10. Turn on the failure email. cron-job.org disables a job after 25 failures in a row.
+
+You can check the same URL yourself:
 
 ```bash
 curl -sS -H "Authorization: Bearer $CRON_SECRET" \
-  https://YOUR_APP.vercel.app/api/cron/dispatch
+  https://YOUR_PRODUCTION_DOMAIN/api/cron/dispatch
 ```
 
-Pro (and any scheduler that can call that URL) can use the 5-minute schedule already in `vercel.json`. Each run creates upcoming meal reminders if they are missing, sends every pending reminder whose time has arrived, and drops push subscriptions the browser has expired (HTTP 404 or 410). If every subscription fails for a temporary reason, the reminder stays pending and the next run tries again.
+In Vercel, **Settings → Deployment Protection**: production must be publicly reachable. The iPhone install needs that anyway. If Standard Protection covers production, cron-job.org receives Vercel's login page, the job fails, and it turns itself off. Vercel's own daily cron is allowed through that protection and sends the bearer token on its own.
+
+A Pro plan can replace this with a `*/5 * * * *` entry in `vercel.json`. Hobby will reject that schedule and the deploy will not go out.
 
 ## Install on an iPhone
 

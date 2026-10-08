@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { resolveDatabaseUrl } from "./url";
 
 const globalForDb = globalThis as unknown as {
   sql?: ReturnType<typeof postgres>;
@@ -8,9 +9,8 @@ const globalForDb = globalThis as unknown as {
 };
 
 export function getSql() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
   if (!globalForDb.sql) {
+    const { url } = resolveDatabaseUrl(process.env, "app");
     globalForDb.sql = postgres(url, { prepare: false, max: 5 });
   }
   return globalForDb.sql;
