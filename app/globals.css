@@ -730,11 +730,18 @@ a.card.circuit-card {
 .body-map.compact .muscle { pointer-events: none; cursor: default; }
 a.card.circuit-step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   min-height: 64px;
 }
-.circuit-step strong, .circuit-step .faint { display: block; }
+.circuit-step strong, .circuit-step .faint, .station-note { display: block; }
+.station-note {
+  margin-top: 4px;
+  color: var(--cyan);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.station-cue { margin-top: 8px; }
 .step-index {
   width: 32px;
   height: 32px;

@@ -7,15 +7,21 @@ import { GET as botOne } from "../app/api/bot/circuits/[id]/route";
 import { POST as botSchedule } from "../app/api/bot/circuits/[id]/schedule/route";
 import { POST as completeCircuitRoute } from "../app/api/circuits/[id]/complete/route";
 import { closeDb } from "../lib/db";
+import { GET as botExercises } from "../app/api/bot/exercises/route";
+import { GET as botSettings } from "../app/api/bot/settings/route";
 import {
   CIRCUITS,
   assertCircuitCatalog,
   circuitDurationSeconds,
+  circuitFits,
   getCircuit,
+  stationCue,
 } from "../lib/circuits";
+import { DEFAULT_EQUIPMENT } from "../lib/equipment";
 import { getExercise } from "../lib/exercises";
 import { isMuscleId } from "../lib/muscles";
 import { listReminders } from "../lib/services/reminders";
+import { getSettings, updateSettings } from "../lib/services/settings";
 import { muscleCoverage } from "../lib/services/workouts";
 import { migrate } from "../scripts/migrate";
 import { getSql } from "../lib/db";
@@ -28,13 +34,17 @@ const names = [
   "Full Abs",
   "Obliques",
   "Arms",
+  "Dumbbell Arms",
+  "Dumbbell Shoulders",
   "Chest",
   "Upper Chest",
   "Lower Chest",
+  "Push-up Board",
   "Chest & Shoulders",
   "Back",
   "Legs & Glutes",
   "Full Body",
+  "Dumbbell Full Body",
 ];
 
 async function reset() {
@@ -99,6 +109,24 @@ describe("circuits", () => {
       assert.ok(chest.stations.some((station) => station.libraryId === id), id);
     }
     assert.ok(lower.stations.every((station) => getExercise(station.libraryId)?.primary.includes("lower_abs") || getExercise(station.libraryId)?.secondary.includes("lower_abs")));
+    assert.equal(CIRCUITS.some((circuit) => /backpack/i.test(circuit.summary)), false);
+    const board = getCircuit("pushup-board");
+    assert.ok(board);
+    assert.deepEqual(board.stations.map((station) => station.board), ["chest", "shoulders", "back", "triceps"]);
+    assert.ok(board.stations.every((station) => station.libraryId === "Pushups"));
+    assert.match(stationCue(board.stations[0], DEFAULT_EQUIPMENT), /Blue/);
+    assert.match(stationCue(board.stations[0], DEFAULT_EQUIPMENT), /Chest/);
+    const curl = getCircuit("dumbbell-arms")?.stations.find((station) => station.libraryId === "Dumbbell_Bicep_Curl");
+    const press = chest.stations.find((station) => station.libraryId === "Dumbbell_Bench_Press");
+    assert.ok(curl && (curl.reps ?? 0) >= 15);
+    assert.ok(press && (press.reps ?? 0) >= 12);
+    assert.match(stationCue(curl, DEFAULT_EQUIPMENT), /15 lb/);
+    const dumbbellArms = getCircuit("dumbbell-arms");
+    const pushupBoard = getCircuit("pushup-board");
+    assert.ok(dumbbellArms && pushupBoard);
+    assert.equal(circuitFits(dumbbellArms, ["bodyweight", "pushup_board"]), false);
+    assert.equal(circuitFits(pushupBoard, ["bodyweight", "dumbbells"]), false);
+    assert.equal(circuitFits(lower, ["bodyweight"]), true);
   });
 
   it("lists and reads circuits for the bot", async () => {
@@ -149,6 +177,72 @@ describe("circuits", () => {
     assert.ok(String(detail.stations[0].images[0]).includes(".jpg"));
     assert.equal(detail.restSeconds.beginner.exercise, 20);
     assert.ok(detail.durationMinutes.beginner >= 1);
+  });
+
+  it("defaults home equipment and filters circuits and the library", async () => {
+    const settingsResponse = await botSettings(new Request("http://localhost/api/bot/settings", { headers: bot }), ctx);
+    assert.equal(settingsResponse.status, 200);
+    const settingsBody = await settingsResponse.json();
+    assert.deepEqual(settingsBody.equipment.gear, ["bodyweight", "pushup_board", "dumbbells"]);
+    assert.equal(settingsBody.equipment.dumbbellLb, 15);
+    assert.equal(settingsBody.equipment.dumbbellCount, 2);
+
+    const listed = await botList(new Request("http://localhost/api/bot/circuits", { headers: bot }), ctx);
+    const ids = (await listed.json()).circuits.map((circuit: { id: string }) => circuit.id);
+    for (const id of ["pushup-board", "dumbbell-arms", "dumbbell-shoulders", "dumbbell-full-body"]) {
+      assert.ok(ids.includes(id), id);
+    }
+
+    const boardResponse = await botOne(
+      new Request("http://localhost/api/bot/circuits/pushup-board", { headers: bot }),
+      { params: Promise.resolve({ id: "pushup-board" }) },
+    );
+    const board = await boardResponse.json();
+    assert.match(board.stations[0].note, /Blue/);
+    assert.match(board.stations[0].note, /Chest/);
+    assert.match(board.stations[1].note, /Red/);
+    assert.match(board.stations[2].note, /Yellow/);
+    assert.match(board.stations[3].note, /Green/);
+    assert.ok(board.stations.every((station: { libraryId: string; images: string[] }) => station.libraryId === "Pushups" && station.images[0].includes("Pushups")));
+
+    const armsResponse = await botOne(
+      new Request("http://localhost/api/bot/circuits/dumbbell-arms", { headers: bot }),
+      { params: Promise.resolve({ id: "dumbbell-arms" }) },
+    );
+    const arms = await armsResponse.json();
+    assert.match(arms.stations[0].note, /15 lb/);
+    assert.ok(arms.stations[0].work.beginner.reps >= 15);
+
+    await updateSettings({ equipment: { gear: ["bodyweight", "pushup_board"], dumbbellLb: 15, dumbbellCount: 2 } });
+    const filtered = await botList(new Request("http://localhost/api/bot/circuits", { headers: bot }), ctx);
+    const filteredIds = (await filtered.json()).circuits.map((circuit: { id: string }) => circuit.id);
+    assert.equal(filteredIds.includes("dumbbell-arms"), false);
+    assert.equal(filteredIds.includes("chest"), false);
+    assert.ok(filteredIds.includes("pushup-board"));
+    assert.ok(filteredIds.includes("lower-abs"));
+
+    const barbell = await botExercises(
+      new Request("http://localhost/api/bot/exercises?equipment=barbell", { headers: bot }),
+      ctx,
+    );
+    assert.equal((await barbell.json()).count, 0);
+    const owned = await botExercises(new Request("http://localhost/api/bot/exercises?limit=200", { headers: bot }), ctx);
+    const ownedBody = await owned.json();
+    assert.ok(ownedBody.exercises.every((exercise: { equipment: string }) => exercise.equipment === "bodyweight" || exercise.equipment === "dumbbell"));
+    const full = await botExercises(
+      new Request("http://localhost/api/bot/exercises?limit=200&all=1", { headers: bot }),
+      ctx,
+    );
+    assert.ok((await full.json()).exercises.some((exercise: { equipment: string }) => exercise.equipment === "barbell"));
+    const unknown = await botExercises(
+      new Request("http://localhost/api/bot/exercises?equipment=foam", { headers: bot }),
+      ctx,
+    );
+    assert.equal(unknown.status, 400);
+
+    const restored = await updateSettings({ equipment: DEFAULT_EQUIPMENT });
+    assert.deepEqual((await getSettings()).equipment, restored.equipment);
+    assert.deepEqual(restored.equipment.gear, DEFAULT_EQUIPMENT.gear);
   });
 
   it("schedules a circuit onto a day with a workout reminder", async () => {

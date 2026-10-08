@@ -1,3 +1,5 @@
+import type { EquipmentProfile } from "./equipment";
+
 export const EVENT_TYPES = ["class", "work", "study", "workout", "meal", "other"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
@@ -50,6 +52,7 @@ export type AppSettings = {
   waterReminders: WaterReminderSetting;
   sleepReminder: ClockReminderSetting;
   habitReminder: ClockReminderSetting;
+  equipment: EquipmentProfile;
 };
 
 export type EventDto = {

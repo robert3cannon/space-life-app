@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import { GEAR_OPTIONS, type GearId } from "@/lib/equipment";
 import type { AppSettings } from "@/lib/types";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
@@ -45,6 +46,9 @@ export function SettingsView() {
   const [sleepTime, setSleepTime] = useState("01:00");
   const [habitOn, setHabitOn] = useState(false);
   const [habitTime, setHabitTime] = useState("22:00");
+  const [gear, setGear] = useState<GearId[]>(["bodyweight", "pushup_board", "dumbbells"]);
+  const [dumbbellLb, setDumbbellLb] = useState("15");
+  const [dumbbellCount, setDumbbellCount] = useState("2");
   const toast = useToast();
 
   useEffect(() => {
@@ -76,6 +80,9 @@ export function SettingsView() {
     setSleepTime(settings.data.sleepReminder.time);
     setHabitOn(settings.data.habitReminder.enabled);
     setHabitTime(settings.data.habitReminder.time);
+    setGear(settings.data.equipment.gear);
+    setDumbbellLb(String(settings.data.equipment.dumbbellLb));
+    setDumbbellCount(String(settings.data.equipment.dumbbellCount));
   }, [settings.data]);
 
   async function enable() {
@@ -132,6 +139,11 @@ export function SettingsView() {
           waterReminders: { enabled: waterOn, times: waterTimes },
           sleepReminder: { enabled: sleepOn, time: sleepTime },
           habitReminder: { enabled: habitOn, time: habitTime },
+          equipment: {
+            gear,
+            dumbbellLb: Number(dumbbellLb),
+            dumbbellCount: Number(dumbbellCount),
+          },
         }),
       });
       toast("Saved");
@@ -191,6 +203,41 @@ export function SettingsView() {
       {settings.data ? (
         <form onSubmit={(event) => void saveTargets(event)} style={{ marginTop: 12 }}>
           <section className="card">
+            <strong>Home equipment</strong>
+            <p className="faint">Circuits and the exercise library stay on the gear you have here.</p>
+            <div className="chips" style={{ marginTop: 12 }} role="group" aria-label="Home equipment">
+              {GEAR_OPTIONS.map((option) => {
+                const on = gear.includes(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`chip ${on ? "on" : ""}`}
+                    aria-pressed={on}
+                    onClick={() => setGear(on ? gear.filter((id) => id !== option.id) : [...gear, option.id])}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            {gear.includes("dumbbells") ? (
+              <div className="grid-2" style={{ marginTop: 8 }}>
+                <label className="field">
+                  <span>Dumbbells</span>
+                  <select value={dumbbellCount} onChange={(event) => setDumbbellCount(event.target.value)}>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Pounds each</span>
+                  <input inputMode="numeric" value={dumbbellLb} onChange={(event) => setDumbbellLb(event.target.value)} />
+                </label>
+              </div>
+            ) : null}
+          </section>
+          <section className="card" style={{ marginTop: 12 }}>
             <strong>Daily targets</strong>
             <div className="grid-2" style={{ marginTop: 12 }}>
               <label className="field"><span>Calories</span><input inputMode="numeric" value={targets.calories} onChange={(event) => setTargets({ ...targets, calories: event.target.value })} /></label>

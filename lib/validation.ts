@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GEAR_IDS } from "./equipment";
 import { EVENT_TYPES, HABIT_AUTOS, MEALS, WORKOUT_STATUSES } from "./types";
 
 const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -173,6 +174,13 @@ export const settingsPatchSchema = z.object({
       if (value.time < "17:00") {
         ctx.addIssue({ code: "custom", message: "The habit reminder should be in the evening" });
       }
+    })
+    .optional(),
+  equipment: z
+    .object({
+      gear: z.array(z.enum(GEAR_IDS)).max(GEAR_IDS.length),
+      dumbbellLb: z.number().int().min(1).max(150),
+      dumbbellCount: z.number().int().min(1).max(2),
     })
     .optional(),
 });

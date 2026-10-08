@@ -1,4 +1,5 @@
 import { TIMEZONE } from "./constants";
+import { DEFAULT_EQUIPMENT } from "./equipment";
 import type { AppSettings } from "./types";
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -20,4 +21,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   waterReminders: { enabled: false, times: ["12:00", "16:00", "20:00"] },
   sleepReminder: { enabled: false, time: "01:00" },
   habitReminder: { enabled: false, time: "22:00" },
+  equipment: DEFAULT_EQUIPMENT,
 };

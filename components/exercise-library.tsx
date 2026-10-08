@@ -4,18 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { muscleLabel } from "@/lib/muscles";
+import type { AppSettings } from "@/lib/types";
 import { useLoad } from "./use-load";
 import { BodyMap } from "./body-map";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
-const EQUIPMENT: { id: string; label: string }[] = [
-  { id: "", label: "All gear" },
-  { id: "bodyweight", label: "Bodyweight" },
-  { id: "dumbbell", label: "Dumbbell" },
-  { id: "barbell", label: "Barbell" },
-  { id: "machine", label: "Machine" },
-  { id: "cable", label: "Cable" },
-];
+const BOARD_IDS = new Set(["Pushups", "Isometric_Wipers"]);
 
 type Row = {
   id: string;
@@ -33,17 +27,29 @@ export function ExerciseLibrary() {
   const addTo = params.get("addTo");
   const [q, setQ] = useState("");
   const [equipment, setEquipment] = useState<string>("");
-  const { data, error, loading, reload } = useLoad<{ exercises: Row[] }>("/api/exercises?limit=200");
+  const settings = useLoad<AppSettings>("/api/settings");
+  const gear = settings.data?.equipment.gear ?? ["bodyweight", "pushup_board", "dumbbells"];
+  const chips = [
+    { id: "", label: "My gear" },
+    ...(gear.includes("bodyweight") || gear.includes("pushup_board") ? [{ id: "bodyweight", label: "Bodyweight" }] : []),
+    ...(gear.includes("dumbbells") ? [{ id: "dumbbell", label: "Dumbbell" }] : []),
+    { id: "all", label: "Full catalog" },
+  ];
+  const query = equipment === "all"
+    ? "/api/exercises?limit=200&all=1"
+    : equipment
+      ? `/api/exercises?limit=200&equipment=${equipment}`
+      : "/api/exercises?limit=200";
+  const { data, error, loading, reload } = useLoad<{ exercises: Row[] }>(query);
 
   const exercises = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (data?.exercises ?? []).filter((exercise) => {
-      if (equipment && exercise.equipment !== equipment) return false;
       if (muscle && !exercise.primary.includes(muscle) && !exercise.secondary.includes(muscle)) return false;
       if (!needle) return true;
       return exercise.name.toLowerCase().includes(needle);
     });
-  }, [data, q, equipment, muscle]);
+  }, [data, q, muscle]);
 
   function pickMuscle(id: string) {
     const next = new URLSearchParams(params.toString());
@@ -81,9 +87,9 @@ export function ExerciseLibrary() {
         <span>Search</span>
         <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Bench, row, squat…" />
       </label>
-      <div className="chips" style={{ marginBottom: 14 }}>
-        {EQUIPMENT.map((item) => (
-          <button key={item.label} type="button" className={`chip ${equipment === item.id ? "on" : ""}`} onClick={() => setEquipment(item.id)}>
+      <div className="chips" style={{ marginBottom: 14 }} role="group" aria-label="Equipment">
+        {chips.map((item) => (
+          <button key={item.id || "mine"} type="button" className={`chip ${equipment === item.id ? "on" : ""}`} onClick={() => setEquipment(item.id)}>
             {item.label}
           </button>
         ))}
@@ -108,6 +114,9 @@ export function ExerciseLibrary() {
                     {exercise.primary.map(muscleLabel).join(", ")}
                     {exercise.secondary.length ? ` · also ${exercise.secondary.slice(0, 3).map(muscleLabel).join(", ")}` : ""}
                   </p>
+                  {gear.includes("pushup_board") && BOARD_IDS.has(exercise.id) ? (
+                    <p className="station-note" style={{ margin: "4px 0 0" }}>Push-up board hand positions are on the detail page.</p>
+                  ) : null}
                   {muscle ? <p className="muted" style={{ margin: "4px 0 0" }}>{primaryHit ? "Primary" : "Secondary"}</p> : null}
                 </Link>
               );

@@ -24,6 +24,7 @@ type Detail = {
   images: string[];
   youtube: string;
   source: { name: string; author: string; license: string; url: string };
+  board: { id: string; color: string; zone: string; hands: string }[] | null;
 };
 
 type Board = { upcoming: WorkoutDto[] };
@@ -73,6 +74,17 @@ export function ExerciseDetail({ id }: { id: string }) {
               <p className="muted" style={{ margin: "8px 0 0" }}>Primary · {data.primary.map(muscleLabel).join(", ")}</p>
               {data.secondary.length ? <p className="faint" style={{ margin: "4px 0 0" }}>Also · {data.secondary.map(muscleLabel).join(", ")}</p> : null}
             </section>
+            {data.board?.length ? (
+              <section className="card">
+                <strong>Push-up board</strong>
+                <p className="faint" style={{ margin: "6px 0 0" }}>Same push-up. Move your hands to the color for the muscle you want.</p>
+                <ul className="steps">
+                  {data.board.map((zone) => (
+                    <li key={zone.id}>{zone.color} · {zone.zone}. {zone.hands}.</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <section className="card">
               <strong>How to</strong>
               <ol className="steps">

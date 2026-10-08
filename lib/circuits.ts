@@ -1,4 +1,13 @@
 import { HttpError } from "./errors";
+import {
+  BOARD_ZONES,
+  boardNote,
+  dumbbellNote,
+  type BoardZoneId,
+  type EquipmentProfile,
+  type GearId,
+  isGearId,
+} from "./equipment";
 import { exerciseImageUrl, getExercise } from "./exercises";
 import { isMuscleId, muscleLabel, type MuscleId } from "./muscles";
 import type { ExerciseInput } from "./validation";
@@ -21,22 +30,34 @@ export type StationSpec = {
   libraryId: string;
   reps?: number;
   seconds?: number;
+  /** Seconds to budget per rep. Dumbbell work uses 4 for a 2-second lower. */
+  repSeconds?: number;
+  /** Show the push-up board color when that gear is owned. */
+  board?: BoardZoneId;
+  /** Add the dumbbell weight and tempo note when dumbbells are owned. */
+  load?: "dumbbell";
+  note?: string;
 };
 
 export type Circuit = {
   id: string;
   name: string;
   summary: string;
+  /** Gear that must be owned for the circuit to appear. */
+  gear: GearId[];
   primary: MuscleId[];
   secondary: MuscleId[];
   stations: StationSpec[];
 };
+
+const slow = { load: "dumbbell" as const, repSeconds: 4 };
 
 export const CIRCUITS: Circuit[] = [
   {
     id: "lower-abs",
     name: "Lower Abs",
     summary: "Floor leg raises and reverse crunches. No equipment.",
+    gear: ["bodyweight"],
     primary: ["lower_abs"],
     secondary: ["hip_flexors", "upper_abs"],
     stations: [
@@ -50,11 +71,12 @@ export const CIRCUITS: Circuit[] = [
   {
     id: "upper-abs",
     name: "Upper Abs",
-    summary: "Sit-ups, a crunch variation, and a plank for the top of the core.",
+    summary: "Sit-ups, a crunch variation, and a plank for the top of the core. Hold a dumbbell on the sit-up when you want it heavier.",
+    gear: ["bodyweight"],
     primary: ["upper_abs"],
     secondary: ["lower_abs"],
     stations: [
-      { libraryId: "3_4_Sit-Up", reps: 12 },
+      { libraryId: "3_4_Sit-Up", reps: 12, load: "dumbbell" },
       { libraryId: "Cocoons", reps: 10 },
       { libraryId: "Air_Bike", seconds: 30 },
       { libraryId: "Bottoms_Up", reps: 10 },
@@ -64,7 +86,8 @@ export const CIRCUITS: Circuit[] = [
   {
     id: "full-abs",
     name: "Full Abs",
-    summary: "A full core circuit: dead bug, plank, bikes, and crunches.",
+    summary: "A full core circuit: dead bug, plank, bikes, and a sit-up you can load with one dumbbell.",
+    gear: ["bodyweight"],
     primary: ["upper_abs", "lower_abs", "obliques"],
     secondary: ["hip_flexors"],
     stations: [
@@ -73,13 +96,14 @@ export const CIRCUITS: Circuit[] = [
       { libraryId: "Air_Bike", seconds: 30 },
       { libraryId: "Reverse_Crunch", reps: 12 },
       { libraryId: "Oblique_Crunches", reps: 12 },
-      { libraryId: "3_4_Sit-Up", reps: 12 },
+      { libraryId: "3_4_Sit-Up", reps: 12, load: "dumbbell", note: "Hold one dumbbell at your chest." },
     ],
   },
   {
     id: "obliques",
     name: "Obliques",
     summary: "Side crunches and bikes for the waist. All on the floor.",
+    gear: ["bodyweight"],
     primary: ["obliques"],
     secondary: ["upper_abs", "lower_abs"],
     stations: [
@@ -93,84 +117,132 @@ export const CIRCUITS: Circuit[] = [
   {
     id: "arms",
     name: "Arms",
-    summary: "Backpack curls and chair dips. A loaded backpack stands in for the dumbbell.",
+    summary: "15 lb curls and chair dips. Lower the bells for 2 seconds.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["biceps", "triceps"],
     secondary: ["forearms"],
     stations: [
-      { libraryId: "Dumbbell_Bicep_Curl", reps: 10 },
-      { libraryId: "Bench_Dips", reps: 10 },
-      { libraryId: "Hammer_Curls", reps: 8 },
-      { libraryId: "Dips_-_Triceps_Version", reps: 8 },
-      { libraryId: "Alternate_Hammer_Curl", reps: 8 },
+      { libraryId: "Dumbbell_Bicep_Curl", reps: 15, ...slow },
+      { libraryId: "Bench_Dips", reps: 12 },
+      { libraryId: "Hammer_Curls", reps: 12, ...slow },
+      { libraryId: "Dips_-_Triceps_Version", reps: 10 },
+      { libraryId: "Alternate_Hammer_Curl", reps: 12, ...slow },
+    ],
+  },
+  {
+    id: "dumbbell-arms",
+    name: "Dumbbell Arms",
+    summary: "Curls and a close press with the 15 lb pair. Higher reps, slow lower.",
+    gear: ["dumbbells"],
+    primary: ["biceps", "triceps"],
+    secondary: ["forearms"],
+    stations: [
+      { libraryId: "Dumbbell_Bicep_Curl", reps: 15, ...slow },
+      { libraryId: "Hammer_Curls", reps: 12, ...slow },
+      { libraryId: "Alternate_Hammer_Curl", reps: 12, ...slow },
+      { libraryId: "Close-Grip_Dumbbell_Press", reps: 12, ...slow, note: "Floor press is fine." },
+    ],
+  },
+  {
+    id: "dumbbell-shoulders",
+    name: "Dumbbell Shoulders",
+    summary: "Raises and rear flies with the 15 lb pair. Stop a rep early if the shoulder shrugs.",
+    gear: ["dumbbells"],
+    primary: ["front_delts", "side_delts", "rear_delts"],
+    secondary: ["traps"],
+    stations: [
+      { libraryId: "Side_Lateral_Raise", reps: 10, ...slow },
+      { libraryId: "Front_Dumbbell_Raise", reps: 10, ...slow },
+      { libraryId: "Reverse_Flyes", reps: 12, ...slow },
+      { libraryId: "Dumbbell_Raise", reps: 10, ...slow },
     ],
   },
   {
     id: "chest",
     name: "Chest",
-    summary: "Wide-hand, incline, and decline push-ups, then a backpack press and fly.",
+    summary: "Wide-hand push-up on the blue chest pegs, plus incline and decline. Then a 15 lb press and fly.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["mid_chest", "upper_chest", "lower_chest"],
     secondary: ["front_delts", "triceps"],
     stations: [
-      { libraryId: "Pushups", reps: 10 },
+      { libraryId: "Pushups", reps: 12, board: "chest" },
       { libraryId: "Incline_Push-Up", reps: 10 },
       { libraryId: "Decline_Push-Up", reps: 8 },
       { libraryId: "Isometric_Wipers", reps: 8 },
-      { libraryId: "Dumbbell_Bench_Press", reps: 8 },
-      { libraryId: "Dumbbell_Flyes", reps: 10 },
+      { libraryId: "Dumbbell_Bench_Press", reps: 12, ...slow, note: "Floor press works." },
+      { libraryId: "Dumbbell_Flyes", reps: 12, ...slow },
     ],
   },
   {
     id: "upper-chest",
     name: "Upper Chest",
-    summary: "Incline push-ups and a backpack press and fly for the upper chest.",
+    summary: "Incline push-ups, then a 15 lb incline press and fly.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["upper_chest"],
     secondary: ["mid_chest", "front_delts"],
     stations: [
       { libraryId: "Incline_Push-Up", reps: 12 },
       { libraryId: "Incline_Push-Up_Medium", reps: 10 },
-      { libraryId: "Incline_Dumbbell_Press", reps: 8 },
-      { libraryId: "Incline_Dumbbell_Flyes", reps: 10 },
+      { libraryId: "Incline_Dumbbell_Press", reps: 12, ...slow },
+      { libraryId: "Incline_Dumbbell_Flyes", reps: 12, ...slow },
     ],
   },
   {
     id: "lower-chest",
     name: "Lower Chest",
-    summary: "Feet-up push-ups and a backpack fly for the lower chest.",
+    summary: "Feet-up push-ups and 15 lb flies for the lower chest.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["lower_chest"],
     secondary: ["mid_chest", "triceps"],
     stations: [
       { libraryId: "Decline_Push-Up", reps: 12 },
-      { libraryId: "Decline_Dumbbell_Flyes", reps: 10 },
-      { libraryId: "Dumbbell_Flyes", reps: 8 },
+      { libraryId: "Decline_Dumbbell_Flyes", reps: 12, ...slow },
+      { libraryId: "Dumbbell_Flyes", reps: 12, ...slow },
       { libraryId: "Isometric_Chest_Squeezes", seconds: 20 },
+    ],
+  },
+  {
+    id: "pushup-board",
+    name: "Push-up Board",
+    summary: "One pass through the board: blue chest, red shoulders, yellow back, green triceps. Rounds repeat the colors.",
+    gear: ["bodyweight", "pushup_board"],
+    primary: ["mid_chest", "front_delts", "triceps", "lats"],
+    secondary: ["side_delts", "mid_back", "upper_chest"],
+    stations: [
+      { libraryId: "Pushups", reps: 12, board: "chest" },
+      { libraryId: "Pushups", reps: 10, board: "shoulders" },
+      { libraryId: "Pushups", reps: 10, board: "back" },
+      { libraryId: "Pushups", reps: 12, board: "triceps" },
     ],
   },
   {
     id: "chest-shoulders",
     name: "Chest & Shoulders",
-    summary: "Push-ups from a few angles, plus a backpack raise for the delts.",
+    summary: "Push-ups from a few angles, the blue chest pegs, and 15 lb raises.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["mid_chest", "upper_chest", "front_delts", "side_delts"],
     secondary: ["lower_chest", "triceps"],
     stations: [
       { libraryId: "Incline_Push-Up", reps: 10 },
-      { libraryId: "Pushups", reps: 8 },
-      { libraryId: "Decline_Push-Up", reps: 6 },
+      { libraryId: "Pushups", reps: 10, board: "chest" },
+      { libraryId: "Decline_Push-Up", reps: 8 },
       { libraryId: "Isometric_Chest_Squeezes", seconds: 20 },
-      { libraryId: "Side_Lateral_Raise", reps: 10 },
+      { libraryId: "Side_Lateral_Raise", reps: 10, ...slow },
       { libraryId: "Kneeling_Arm_Drill", seconds: 20 },
     ],
   },
   {
     id: "back",
     name: "Back",
-    summary: "A table row, a backpack row, and back extensions. Chin-ups if you have a bar.",
+    summary: "A table row, a 15 lb dumbbell row, and back extensions. Chin-ups if you have a bar.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["mid_back", "lower_back", "lats"],
     secondary: ["rear_delts", "traps", "biceps"],
     stations: [
       { libraryId: "Inverted_Row", reps: 8 },
-      { libraryId: "One-Arm_Dumbbell_Row", reps: 8 },
-      { libraryId: "Hyperextensions_Back_Extensions", reps: 10 },
-      { libraryId: "Reverse_Flyes", reps: 10 },
+      { libraryId: "One-Arm_Dumbbell_Row", reps: 12, ...slow },
+      { libraryId: "Hyperextensions_Back_Extensions", reps: 12 },
+      { libraryId: "Reverse_Flyes", reps: 12, ...slow },
       { libraryId: "Chin-Up", reps: 4 },
     ],
   },
@@ -178,10 +250,11 @@ export const CIRCUITS: Circuit[] = [
     id: "legs-glutes",
     name: "Legs & Glutes",
     summary: "Squats, lunges, and bridges. Bodyweight, at home.",
+    gear: ["bodyweight"],
     primary: ["quads", "glutes"],
     secondary: ["hamstrings", "abductors", "calves"],
     stations: [
-      { libraryId: "Bodyweight_Squat", reps: 12 },
+      { libraryId: "Bodyweight_Squat", reps: 15, load: "dumbbell", note: "Hold the bells at your sides, or go empty." },
       { libraryId: "Bodyweight_Walking_Lunge", reps: 10 },
       { libraryId: "Butt_Lift_Bridge", reps: 12 },
       { libraryId: "Glute_Kickback", reps: 10 },
@@ -192,18 +265,35 @@ export const CIRCUITS: Circuit[] = [
   {
     id: "full-body",
     name: "Full Body",
-    summary: "The home session: squats, push-ups, a row, curls, chair dips, and a plank.",
+    summary: "Squats, a board push-up, a row, 15 lb curls, chair dips, and a plank.",
+    gear: ["bodyweight", "dumbbells"],
     primary: ["quads", "glutes", "mid_chest", "mid_back", "upper_abs", "lower_abs", "biceps", "triceps"],
     secondary: ["front_delts", "hamstrings", "lats"],
     stations: [
-      { libraryId: "Bodyweight_Squat", reps: 12 },
-      { libraryId: "Pushups", reps: 8 },
+      { libraryId: "Bodyweight_Squat", reps: 15 },
+      { libraryId: "Pushups", reps: 10, board: "chest" },
       { libraryId: "Inverted_Row", reps: 8 },
       { libraryId: "Reverse_Crunch", reps: 12 },
-      { libraryId: "Bench_Dips", reps: 10 },
-      { libraryId: "Dumbbell_Bicep_Curl", reps: 10 },
+      { libraryId: "Bench_Dips", reps: 12 },
+      { libraryId: "Dumbbell_Bicep_Curl", reps: 15, ...slow },
       { libraryId: "Butt_Lift_Bridge", reps: 12 },
       { libraryId: "Plank", seconds: 30 },
+    ],
+  },
+  {
+    id: "dumbbell-full-body",
+    name: "Dumbbell Full Body",
+    summary: "Press, row, raise, curl, squat, and a loaded sit-up with the 15 lb pair.",
+    gear: ["dumbbells", "bodyweight"],
+    primary: ["mid_chest", "mid_back", "side_delts", "biceps", "quads", "upper_abs"],
+    secondary: ["front_delts", "lats", "glutes", "lower_abs", "triceps"],
+    stations: [
+      { libraryId: "Dumbbell_Bench_Press", reps: 12, ...slow, note: "Floor press works." },
+      { libraryId: "One-Arm_Dumbbell_Row", reps: 12, ...slow },
+      { libraryId: "Side_Lateral_Raise", reps: 10, ...slow },
+      { libraryId: "Dumbbell_Bicep_Curl", reps: 15, ...slow },
+      { libraryId: "Bodyweight_Squat", reps: 15, load: "dumbbell", note: "Bells at your sides." },
+      { libraryId: "3_4_Sit-Up", reps: 12, load: "dumbbell", note: "One bell at your chest." },
     ],
   },
 ];
@@ -234,7 +324,8 @@ export function circuitDurationSeconds(circuit: Circuit, level: CircuitLevel, ro
   const plan = LEVEL_PLAN[level];
   const work = circuit.stations.reduce((sum, station) => {
     const dose = stationWork(station, level);
-    return sum + (dose.seconds ?? (dose.reps ?? 0) * REP_SECONDS);
+    const perRep = station.repSeconds ?? REP_SECONDS;
+    return sum + (dose.seconds ?? (dose.reps ?? 0) * perRep);
   }, 0);
   const exerciseRests = Math.max(0, circuit.stations.length - 1) * plan.exerciseRest;
   return rounds * (work + exerciseRests) + Math.max(0, rounds - 1) * plan.roundRest;
@@ -253,9 +344,13 @@ function trainedMuscles(circuit: Circuit) {
   const secondary = new Set<string>();
   for (const station of circuit.stations) {
     const exercise = getExercise(station.libraryId);
-    if (!exercise) continue;
-    for (const id of exercise.primary) primary.add(id);
-    for (const id of exercise.secondary) secondary.add(id);
+    if (exercise) {
+      for (const id of exercise.primary) primary.add(id);
+      for (const id of exercise.secondary) secondary.add(id);
+    }
+    if (station.board) {
+      for (const id of BOARD_ZONES[station.board].muscles) primary.add(id);
+    }
   }
   return { primary, secondary };
 }
@@ -270,7 +365,15 @@ export function assertCircuitCatalog() {
   for (const circuit of CIRCUITS) {
     if (ids.has(circuit.id)) problems.push(`duplicate circuit ${circuit.id}`);
     ids.add(circuit.id);
+    if (!circuit.gear.length) problems.push(`${circuit.id} needs gear`);
+    for (const gear of circuit.gear) {
+      if (!isGearId(gear)) problems.push(`${circuit.id} has unknown gear ${gear}`);
+    }
     if (!circuit.stations.length) problems.push(`${circuit.id} has no exercises`);
+    if (/backpack/i.test(circuit.summary)) problems.push(`${circuit.id} still mentions a backpack`);
+    if (circuit.gear.includes("pushup_board") && !circuit.stations.some((station) => station.board)) {
+      problems.push(`${circuit.id} lists the push-up board but has no board station`);
+    }
     const trained = trainedMuscles(circuit);
     for (const muscle of [...circuit.primary, ...circuit.secondary]) {
       if (!isMuscleId(muscle)) problems.push(`${circuit.id} has unknown muscle ${muscle}`);
@@ -287,6 +390,9 @@ export function assertCircuitCatalog() {
       const hasReps = station.reps != null;
       const hasTime = station.seconds != null;
       if (hasReps === hasTime) problems.push(`${circuit.id} ${station.libraryId} needs reps or seconds`);
+      if (exercise.equipment === "dumbbell" && !circuit.gear.includes("dumbbells")) {
+        problems.push(`${circuit.id} uses ${exercise.id} without dumbbells in gear`);
+      }
       for (const muscle of [...exercise.primary, ...exercise.secondary]) {
         if (!isMuscleId(muscle)) problems.push(`${exercise.id} has unknown muscle ${muscle}`);
       }
@@ -317,15 +423,35 @@ export function resolvePlan(id: string, level?: string, rounds?: number) {
   };
 }
 
-export function circuitExercises(id: string, level: CircuitLevel, rounds: number, completed: boolean): ExerciseInput[] {
+export function stationCue(station: StationSpec, equipment: EquipmentProfile) {
+  const parts: string[] = [];
+  if (station.board && equipment.gear.includes("pushup_board")) parts.push(boardNote(station.board));
+  if (station.load === "dumbbell" && equipment.gear.includes("dumbbells")) parts.push(dumbbellNote(equipment.dumbbellLb));
+  if (station.note) parts.push(station.note);
+  return parts.join(" ");
+}
+
+export function circuitFits(circuit: Circuit, gear: readonly GearId[]) {
+  return circuit.gear.every((id) => gear.includes(id));
+}
+
+export function circuitExercises(
+  id: string,
+  level: CircuitLevel,
+  rounds: number,
+  completed: boolean,
+  equipment: EquipmentProfile,
+): ExerciseInput[] {
   const circuit = requireCircuit(id);
   return circuit.stations.map((station) => {
     const exercise = getExercise(station.libraryId);
     if (!exercise) throw new HttpError("Exercise not found", 404);
     const dose = stationWork(station, level);
+    const cue = stationCue(station, equipment);
     return {
       name: exercise.name,
       libraryId: exercise.id,
+      notes: cue || null,
       sets: Array.from({ length: rounds }, () => ({
         reps: dose.reps,
         durationSeconds: dose.seconds,
@@ -335,7 +461,7 @@ export function circuitExercises(id: string, level: CircuitLevel, rounds: number
   });
 }
 
-function stationDetail(station: StationSpec) {
+function stationDetail(station: StationSpec, equipment: EquipmentProfile) {
   const exercise = getExercise(station.libraryId);
   if (!exercise) throw new HttpError("Exercise not found", 404);
   return {
@@ -346,6 +472,8 @@ function stationDetail(station: StationSpec) {
     secondary: exercise.secondary,
     steps: exercise.steps,
     images: exercise.images.map(exerciseImageUrl),
+    note: stationCue(station, equipment),
+    repSeconds: station.repSeconds ?? 3,
     work: {
       beginner: stationWork(station, "beginner"),
       intermediate: stationWork(station, "intermediate"),
@@ -364,13 +492,14 @@ export function summarizeCircuit(circuit: Circuit) {
     levels: [...CIRCUIT_LEVELS],
     rounds: { beginner: LEVEL_PLAN.beginner.rounds, intermediate: LEVEL_PLAN.intermediate.rounds },
     durationMinutes: { beginner, intermediate },
+    gear: circuit.gear,
     primary: circuit.primary,
     secondary: circuit.secondary,
     musclesLabel: circuit.primary.map(muscleLabel).join(", "),
   };
 }
 
-export function circuitDetail(id: string) {
+export function circuitDetail(id: string, equipment: EquipmentProfile) {
   const circuit = requireCircuit(id);
   return {
     ...summarizeCircuit(circuit),
@@ -378,15 +507,16 @@ export function circuitDetail(id: string) {
       beginner: { exercise: LEVEL_PLAN.beginner.exerciseRest, round: LEVEL_PLAN.beginner.roundRest },
       intermediate: { exercise: LEVEL_PLAN.intermediate.exerciseRest, round: LEVEL_PLAN.intermediate.roundRest },
     },
-    stations: circuit.stations.map(stationDetail),
+    stations: circuit.stations.map((station) => stationDetail(station, equipment)),
   };
 }
 
-export function listCircuits(muscle?: string) {
+export function listCircuits(muscle: string | undefined, equipment: EquipmentProfile) {
   if (muscle && !isMuscleId(muscle)) {
     throw new HttpError("Unknown muscle", 400);
   }
   const selected = muscle && isMuscleId(muscle) ? muscle : undefined;
-  const rows = selected ? CIRCUITS.filter((circuit) => circuitTrains(circuit, selected)) : CIRCUITS;
-  return rows.map(summarizeCircuit);
+  const rows = CIRCUITS.filter((circuit) => circuitFits(circuit, equipment.gear));
+  const matched = selected ? rows.filter((circuit) => circuitTrains(circuit, selected)) : rows;
+  return matched.map(summarizeCircuit);
 }

@@ -15,6 +15,7 @@ type Station = {
   name: string;
   steps: string[];
   images: string[];
+  note: string;
   work: Record<Level, Work>;
 };
 type Detail = {
@@ -246,6 +247,7 @@ export function CircuitPlayer({ id }: { id: string }) {
               : `Round ${step.round + 1} of ${rounds} · ${step.index + 1} of ${data.stations.length}`}
           </p>
           <h1 className="display player-title">{step.kind === "rest" ? "Rest" : station.name}</h1>
+          {step.kind === "work" && station.note ? <p className="sub station-cue">{station.note}</p> : null}
           {step.kind === "work" ? <Demo images={station.images} name={station.name} /> : null}
           {step.kind === "rest" || timedWork ? (
             <p className="timer-readout" aria-live="polite">{clock(left)}</p>
@@ -272,6 +274,7 @@ export function CircuitPlayer({ id }: { id: string }) {
               <p className="kicker">{step.kind === "rest" && step.betweenRounds ? "Next round" : "Up next"}</p>
               <strong>{upNext.name}</strong>
               <span className="faint">{upNext.work[level].seconds != null ? `${upNext.work[level].seconds}s` : `${upNext.work[level].reps} reps`}</span>
+              {upNext.note ? <span className="station-note">{upNext.note}</span> : null}
             </section>
           ) : null}
           {step.kind === "work" && station.steps.length ? (

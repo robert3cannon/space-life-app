@@ -1,18 +1,22 @@
 import { json, readJson } from "../api";
 import { circuitDetail, listCircuits } from "../circuits";
+import { equipmentSummary } from "../equipment";
 import { HttpError } from "../errors";
 import { completeCircuit, scheduleCircuit } from "../services/circuits";
+import { getSettings } from "../services/settings";
 import { circuitCompleteSchema, circuitScheduleSchema } from "../validation";
 
 export async function getCircuits(req: Request) {
+  const equipment = (await getSettings()).equipment;
   const muscle = new URL(req.url).searchParams.get("muscle") || undefined;
-  const circuits = listCircuits(muscle);
-  return json({ count: circuits.length, circuits });
+  const circuits = listCircuits(muscle, equipment);
+  return json({ count: circuits.length, equipment, equipmentLabel: equipmentSummary(equipment), circuits });
 }
 
 export async function getCircuitById(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const equipment = (await getSettings()).equipment;
   const { id } = await ctx.params;
-  return json(circuitDetail(decodeURIComponent(id)));
+  return json(circuitDetail(decodeURIComponent(id), equipment));
 }
 
 export async function postCircuitSchedule(req: Request, ctx: { params: Promise<{ id: string }> }) {

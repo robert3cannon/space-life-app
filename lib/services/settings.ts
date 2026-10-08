@@ -2,6 +2,7 @@ import { eq, and, ne, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { reminders, settings } from "../db/schema";
 import { DEFAULT_SETTINGS } from "../defaults";
+import { cleanGear, DEFAULT_EQUIPMENT } from "../equipment";
 import { TIMEZONE } from "../constants";
 import type { AppSettings } from "../types";
 import type { settingsPatchSchema } from "../validation";
@@ -24,6 +25,13 @@ function normalize(value: AppSettings): AppSettings {
     },
     sleepReminder: { ...DEFAULT_SETTINGS.sleepReminder, ...value.sleepReminder },
     habitReminder: { ...DEFAULT_SETTINGS.habitReminder, ...value.habitReminder },
+    equipment: {
+      ...DEFAULT_EQUIPMENT,
+      ...value.equipment,
+      gear: value.equipment?.gear ? cleanGear(value.equipment.gear) : DEFAULT_EQUIPMENT.gear,
+      dumbbellLb: value.equipment?.dumbbellLb ?? DEFAULT_EQUIPMENT.dumbbellLb,
+      dumbbellCount: value.equipment?.dumbbellCount ?? DEFAULT_EQUIPMENT.dumbbellCount,
+    },
   };
 }
 
@@ -47,6 +55,7 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     waterReminders: patch.waterReminders ?? current.waterReminders,
     sleepReminder: patch.sleepReminder ?? current.sleepReminder,
     habitReminder: patch.habitReminder ?? current.habitReminder,
+    equipment: patch.equipment ?? current.equipment,
   });
   const db = getDb();
   await db

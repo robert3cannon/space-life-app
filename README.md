@@ -385,7 +385,7 @@ PATCH accepts any of: normal fields, `exercises` (replaces the list), `status` (
 | GET | `/api/bot/exercises` | Catalog. Optional `q`, `muscle`, `equipment`, `limit` (1–200, default 40) |
 | GET | `/api/bot/exercises/:id` | One exercise, with steps, mistakes, and image URLs |
 
-`muscle` matches primary or secondary. Primary hits are listed first. `equipment` is `bodyweight`, `dumbbell`, `barbell`, `machine`, `cable`, or `other`.
+`muscle` matches primary or secondary. Primary hits are listed first. `equipment` is `bodyweight`, `dumbbell`, `barbell`, `machine`, `cable`, or `other`. The list follows the home equipment profile in settings: bodyweight (also when the push-up board is owned) and dumbbells. Gear you do not own returns an empty list. Add `all=1` to see the full catalog. A push-up detail includes `board` (blue chest, red shoulders, yellow back, green triceps) when the board is owned.
 
 Muscle ids: `upper_abs`, `lower_abs`, `obliques`, `biceps`, `triceps`, `forearms`, `front_delts`, `side_delts`, `rear_delts`, `upper_chest`, `mid_chest`, `lower_chest`, `lats`, `traps`, `mid_back`, `lower_back`, `glutes`, `quads`, `hamstrings`, `calves`, `adductors`, `abductors`, `hip_flexors`.
 
@@ -432,7 +432,7 @@ Suggested home flows built from the exercise library. Each one has a beginner an
 
 | Method | Path | |
 | --- | --- | --- |
-| GET | `/api/bot/circuits` | List. Optional `?muscle=` keeps circuits whose target muscles include that id |
+| GET | `/api/bot/circuits` | List. Optional `?muscle=` keeps circuits whose target muscles include that id. A circuit is omitted unless its gear is in the home equipment profile |
 | GET | `/api/bot/circuits/:id` | One circuit, with ordered exercises, steps, images, and both levels |
 | POST | `/api/bot/circuits/:id/schedule` | Plan it on a day. Body is `{ "date": "YYYY-MM-DD", "time": "HH:MM" }` |
 
@@ -512,6 +512,8 @@ curl -sS -X PATCH -H "Authorization: Bearer $BOT_API_TOKEN" \
 `waterReminders` is `{ enabled, times }`. Times are `HH:mm`. When enabled, every time must be 11:00 or later so nudges stay in awake hours. `sleepReminder` is `{ enabled, time }` for a wind-down, late evening (20:00 or later) or after midnight through 04:00. `habitReminder` is `{ enabled, time }` at 17:00 or later. It fires only when a habit marked for a reminder is still open that day.
 
 Changing any of those drops unsent water, sleep, and habit reminders so the next cron run recreates them. If today's water goal is already met, today's water nudges are cleared.
+
+`equipment` is `{ "gear": ["bodyweight", "pushup_board", "dumbbells"], "dumbbellLb": 15, "dumbbellCount": 2 }`. That is the default when the key is missing, so an older settings row picks it up with no migration. `gear` may be any subset of those three ids. Circuit lists and the exercise library follow it. Dumbbell stations note the weight and a 2-second lower. Push-up stations that use the board note the color zone.
 
 ### Water
 

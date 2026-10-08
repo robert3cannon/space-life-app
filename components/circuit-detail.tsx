@@ -19,6 +19,8 @@ type Station = {
   name: string;
   equipment: string;
   steps: string[];
+  note: string;
+  repSeconds: number;
   work: Record<Level, Work>;
 };
 type Detail = {
@@ -38,7 +40,7 @@ function estimateMinutes(data: Detail, level: Level, rounds: number) {
   const rest = data.restSeconds[level];
   const work = data.stations.reduce((sum, station) => {
     const dose = station.work[level];
-    return sum + (dose.seconds ?? (dose.reps ?? 0) * 3);
+    return sum + (dose.seconds ?? (dose.reps ?? 0) * station.repSeconds);
   }, 0);
   const exerciseRests = Math.max(0, data.stations.length - 1) * rest.exercise;
   const total = rounds * (work + exerciseRests) + Math.max(0, rounds - 1) * rest.round;
@@ -121,11 +123,12 @@ export function CircuitDetail({ id }: { id: string }) {
           </p>
           <div className="stack" style={{ marginTop: 14 }}>
             {data.stations.map((station, index) => (
-              <Link key={station.libraryId} href={`/exercises/${encodeURIComponent(station.libraryId)}`} className="card circuit-step">
+              <Link key={`${station.libraryId}-${index}`} href={`/exercises/${encodeURIComponent(station.libraryId)}`} className="card circuit-step">
                 <span className="step-index">{index + 1}</span>
                 <span>
                   <strong>{station.name}</strong>
                   <span className="faint">{doseLabel(station.work[level])} · {station.equipment}</span>
+                  {station.note ? <span className="station-note">{station.note}</span> : null}
                 </span>
               </Link>
             ))}

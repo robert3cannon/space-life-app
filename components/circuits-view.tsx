@@ -22,7 +22,7 @@ function minutes(card: CircuitCard) {
 }
 
 export function CircuitsView() {
-  const { data, error, loading, reload } = useLoad<{ circuits: CircuitCard[] }>("/api/circuits");
+  const { data, error, loading, reload } = useLoad<{ circuits: CircuitCard[]; equipmentLabel?: string }>("/api/circuits");
 
   return (
     <main className="page">
@@ -30,7 +30,9 @@ export function CircuitsView() {
       <Link href="/workouts" className="text-btn">Train</Link>
       <p className="kicker" style={{ marginTop: 12 }}>Suggested flows</p>
       <h1 className="display">Circuits</h1>
-      <p className="sub">Ready-made home sessions. Beginner or intermediate, then a guided round.</p>
+      <p className="sub">
+        Ready-made home sessions{data?.equipmentLabel ? ` for ${data.equipmentLabel}` : ""}. Beginner or intermediate, then a guided round.
+      </p>
       {loading && !data ? <Loading /> : null}
       {error ? <ErrorNote message={error} onRetry={reload} /> : null}
       {data ? (

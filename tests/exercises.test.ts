@@ -1,8 +1,9 @@
 import "./load-env";
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import { GET as botExercises } from "../app/api/bot/exercises/route";
 import { GET as botExercise } from "../app/api/bot/exercises/[id]/route";
+import { closeDb } from "../lib/db";
 import { HttpError } from "../lib/errors";
 import { EXERCISES, resolveExercise, searchExercises } from "../lib/exercises";
 import { BACK_MUSCLES, FRONT_MUSCLES } from "../lib/body-figure";
@@ -11,6 +12,10 @@ import { MUSCLE_IDS, isMuscleId } from "../lib/muscles";
 const ctx = undefined as never;
 
 describe("exercise library", () => {
+  after(async () => {
+    await closeDb();
+  });
+
   it("keeps a broad catalog with fine-grained muscles", () => {
     assert.ok(EXERCISES.length >= 100);
     const equipment = new Set(EXERCISES.map((exercise) => exercise.equipment));
