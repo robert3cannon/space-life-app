@@ -92,3 +92,9 @@ export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").$type<AppSettings>().notNull(),
 });
+
+export const foodCache = pgTable("food_cache", {
+  cacheKey: text("cache_key").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+});

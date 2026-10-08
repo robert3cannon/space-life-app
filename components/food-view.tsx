@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MEAL_META } from "@/lib/constants";
 import { api } from "@/lib/client";
+import { foodHitLabel, scaleFood, type FoodHit } from "@/lib/food-catalog";
 import { dayNumber, formatLongDate, formatTime, formatWeekday } from "@/lib/format";
 import { addCalendarDays, getZonedParts } from "@/lib/time";
 import type { FoodDto, MealType, Targets } from "@/lib/types";
+import { BarcodeScan } from "./barcode-scan";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
@@ -55,21 +57,44 @@ export function FoodView() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hits, setHits] = useState<FoodHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchNote, setSearchNote] = useState<string | null>(null);
+  const [picked, setPicked] = useState<FoodHit | null>(null);
+  const [servingIndex, setServingIndex] = useState(0);
+  const [quantity, setQuantity] = useState("1");
+  const [scanning, setScanning] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const pickedName = useRef<string | null>(null);
+  const searchGen = useRef(0);
   const toast = useToast();
   const dayPath = date ? `/api/food?date=${date}` : "/api/food";
   const day = useLoad<DayPayload>(dayPath);
   const active = day.data?.date ?? date ?? "";
   const week = useLoad<WeekPayload>(active ? `/api/food/summary?date=${active}` : "/api/food/summary");
 
+  function clearSearch() {
+    pickedName.current = null;
+    setHits([]);
+    setSearchNote(null);
+    setPicked(null);
+    setServingIndex(0);
+    setQuantity("1");
+    setScanning(false);
+    setSearching(false);
+  }
+
   function openNew(meal: MealType = "snack") {
     setFormError(null);
     setConfirmDelete(false);
+    clearSearch();
     setDraft(blank(meal));
   }
 
   function openEdit(log: FoodDto) {
     setFormError(null);
     setConfirmDelete(false);
+    clearSearch();
     setDraft({
       id: log.id,
       name: log.name,
@@ -80,6 +105,78 @@ export function FoodView() {
       fatG: String(log.fatG),
       time: getZonedParts(new Date(log.loggedAt)).time,
     });
+  }
+
+  function applyHit(hit: FoodHit, index: number, qty: string) {
+    const serving = hit.servings[index] ?? hit.servings[0];
+    const amount = Number(qty);
+    if (!serving || !Number.isFinite(amount) || amount <= 0) return;
+    const nutrients = scaleFood(hit.per100g, serving.grams, amount);
+    const label = foodHitLabel(hit);
+    pickedName.current = label;
+    setPicked(hit);
+    setServingIndex(index);
+    setQuantity(qty);
+    setHits([]);
+    setSearchNote(null);
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            name: label,
+            calories: String(nutrients.calories),
+            proteinG: String(nutrients.proteinG),
+            carbsG: String(nutrients.carbsG),
+            fatG: String(nutrients.fatG),
+          }
+        : current,
+    );
+  }
+
+  const draftName = draft?.name ?? "";
+  const editing = Boolean(draft?.id);
+  useEffect(() => {
+    if (!draftName || editing || scanning) return;
+    const query = draftName.trim();
+    if (query.length < 2 || query === pickedName.current) {
+      if (query.length < 2) setHits([]);
+      return;
+    }
+    const gen = ++searchGen.current;
+    const handle = window.setTimeout(() => {
+      void (async () => {
+        setSearching(true);
+        setSearchNote(null);
+        try {
+          const result = await api<{ foods: FoodHit[] }>(`/api/food/search?q=${encodeURIComponent(query)}&limit=6`);
+          if (gen !== searchGen.current || pickedName.current === query) return;
+          setHits(result.foods);
+          setSearchNote(result.foods.length ? null : "No database match. Enter the numbers yourself.");
+        } catch (err) {
+          if (gen !== searchGen.current) return;
+          setHits([]);
+          setSearchNote(err instanceof Error ? err.message : "Search failed");
+        } finally {
+          if (gen === searchGen.current) setSearching(false);
+        }
+      })();
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [draftName, editing, scanning]);
+
+  async function lookupCode(code: string) {
+    setScanning(false);
+    setLookingUp(true);
+    setFormError(null);
+    try {
+      const result = await api<{ food: FoodHit }>(`/api/food/barcode?code=${encodeURIComponent(code)}`);
+      applyHit(result.food, 0, "1");
+      toast(`Found ${foodHitLabel(result.food)}`);
+    } catch (err) {
+      setSearchNote(err instanceof Error ? err.message : "No food found for that barcode");
+    } finally {
+      setLookingUp(false);
+    }
   }
 
   async function relog(food: FoodDto) {
@@ -240,10 +337,50 @@ export function FoodView() {
       ) : null}
       {mode === "week" && week.error ? <ErrorNote message={week.error} onRetry={week.reload} /> : null}
       <button className="fab" type="button" onClick={() => openNew("snack")} aria-label="Log food">+</button>
-      <Sheet open={Boolean(draft)} title={draft?.id ? "Edit food" : "Log food"} onClose={() => setDraft(null)}>
-        {draft ? (
+      <Sheet open={Boolean(draft)} title={scanning ? "Scan barcode" : draft?.id ? "Edit food" : "Log food"} onClose={() => setDraft(null)}>
+        {draft && scanning ? <BarcodeScan onCode={(code) => void lookupCode(code)} onCancel={() => setScanning(false)} /> : null}
+        {draft && !scanning ? (
           <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-            <label className="field"><span>Name</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
+            <label className="field">
+              <span>Name</span>
+              <input value={draft.name} placeholder={draft.id ? "" : "Search banana, Chipotle bowl…"} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
+            </label>
+            {draft.id ? null : (
+              <button className="btn-ghost" style={{ marginBottom: 12 }} type="button" onClick={() => setScanning(true)}>
+                {lookingUp ? "Looking up…" : "Scan barcode"}
+              </button>
+            )}
+            {searching ? <p className="faint">Searching…</p> : null}
+            {hits.length ? (
+              <div className="stack" style={{ marginBottom: 12 }}>
+                {hits.map((hit) => (
+                  <button key={hit.id} className="event" type="button" onClick={() => applyHit(hit, 0, "1")}>
+                    <time className="num">{hit.calories}</time>
+                    <div>
+                      <strong>{foodHitLabel(hit)}</strong>
+                      <span>{hit.source === "usda" ? "USDA" : "Open Food Facts"} · {hit.servings[0]?.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {searchNote ? <p className="muted" style={{ marginTop: 0 }}>{searchNote}</p> : null}
+            {picked ? (
+              <div className="grid-2">
+                <label className="field">
+                  <span>Serving</span>
+                  <select value={servingIndex} onChange={(event) => applyHit(picked, Number(event.target.value), quantity)}>
+                    {picked.servings.map((serving, index) => (
+                      <option key={`${serving.label}-${serving.grams}`} value={index}>{serving.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Quantity</span>
+                  <input inputMode="decimal" value={quantity} onChange={(event) => { setQuantity(event.target.value); applyHit(picked, servingIndex, event.target.value); }} />
+                </label>
+              </div>
+            ) : null}
             <label className="field">
               <span>Meal</span>
               <select value={draft.meal} onChange={(event) => setDraft({ ...draft, meal: event.target.value as MealType })}>

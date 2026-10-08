@@ -45,6 +45,7 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with `APP_PASSWO
 | `CRON_SECRET` | for reminders | Bearer token for `/api/cron/dispatch`. Vercel sends it automatically when this variable is set. |
 | `USER_NAME` | no | Greeting name. Defaults to Robert. |
 | `ALLOW_SEED` | no | Set to `1` to allow `npm run seed` against production. |
+| `USDA_API_KEY` | no | FoodData Central key for food search and barcodes. If unset, the app uses `DEMO_KEY`, which is heavily rate limited. Get a free key at [fdc.nal.usda.gov/api-key-signup](https://fdc.nal.usda.gov/api-key-signup). |
 
 Generate VAPID keys:
 
@@ -104,7 +105,7 @@ The manifest uses `display: standalone`, a dark theme color (`#060514`), and spl
 
 - **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, today's workout (or the next one), pending reminders, and the latest bot notes.
 - **Schedule.** Day and week views. Create, edit, and delete blocks of type class, work, study, workout, meal, or other. Optional reminder before the start.
-- **Food.** Log meals with calories and protein, carbs, and fat. Daily totals, a weekly chart, editable targets, and one-tap re-log of recent foods.
+- **Food.** Log meals with calories and protein, carbs, and fat. Search USDA FoodData Central and Open Food Facts by name, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
 - **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history.
 - **Reminders.** Custom reminders, plus automatic ones for events, workouts, and meals (default 11:30 breakfast, 3:00 lunch, 8:00 dinner — late on purpose).
 - **Activity.** Short notes from you or from bots.
@@ -184,8 +185,20 @@ curl -sS -X DELETE -H "Authorization: Bearer $BOT_API_TOKEN" \
 | GET, PATCH, DELETE | `/api/bot/food/:id` | One entry |
 | GET | `/api/bot/food/recent` | Last distinct foods, for quick re-log |
 | GET | `/api/bot/food/summary?date=YYYY-MM-DD` | The Monday–Sunday week containing that day |
+| GET | `/api/bot/food/search?q=` | Search USDA and Open Food Facts. `limit` is 1–15, default 8 |
+| GET | `/api/bot/food/barcode?code=` | One packaged food by UPC/EAN |
 
 `meal` is `breakfast`, `lunch`, `dinner`, or `snack`. Re-log by POSTing the same name and macros again (or copy a row from `/recent`).
+
+Search results include `per100g`, `servings` (`label` and `grams`), and calories/macros for the first serving at quantity 1. Log that serving with `POST /api/bot/food`, or scale from `per100g`: nutrients × grams × quantity / 100. Sources are `usda` (generic and branded, including restaurant items when USDA has them) and `openfoodfacts`. Results are cached. Barcode lookup tries Open Food Facts, then USDA branded foods. A miss is `{ "error": "No food found for that barcode" }` with status 404.
+
+```bash
+curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "$BASE/api/bot/food/search?q=chicken%20burrito"
+
+curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "$BASE/api/bot/food/barcode?code=3017620422003"
+```
 
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \

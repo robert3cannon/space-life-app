@@ -3,6 +3,7 @@ import { TIMEZONE } from "../constants";
 import { HttpError } from "../errors";
 import { routeId } from "../ids";
 import { parseRange, requireDate } from "../query";
+import { lookupBarcode, searchFoods } from "../services/food-catalog";
 import { createFood, deleteFood, foodSummary, getFoodLog, listFood, recentFoods, sumFood, updateFood } from "../services/food";
 import { getSettings } from "../services/settings";
 import { todayDateString, zonedDayRange } from "../time";
@@ -63,6 +64,25 @@ export async function getRecentFood(req: Request) {
   const limit = raw ? Number(raw) : 12;
   if (!Number.isInteger(limit) || limit < 1 || limit > 40) throw new HttpError("Invalid limit", 400);
   return json({ foods: await recentFoods(limit) });
+}
+
+function searchLimit(raw: string | null) {
+  if (!raw) return 8;
+  const limit = Number(raw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 15) throw new HttpError("Invalid limit", 400);
+  return limit;
+}
+
+export async function getFoodSearch(req: Request) {
+  const url = new URL(req.url);
+  const query = url.searchParams.get("q") ?? "";
+  const foods = await searchFoods(query, searchLimit(url.searchParams.get("limit")));
+  return json({ query: query.trim(), foods });
+}
+
+export async function getFoodBarcode(req: Request) {
+  const code = new URL(req.url).searchParams.get("code") ?? "";
+  return json({ food: await lookupBarcode(code) });
 }
 
 export async function getFoodSummary(req: Request) {

@@ -363,6 +363,14 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.scan-video {
+  width: 100%;
+  max-height: 240px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #050410;
+}
 .chip {
   border: 1px solid var(--line);
   background: rgba(255,255,255,0.04);
