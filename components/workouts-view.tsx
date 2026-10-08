@@ -220,6 +220,7 @@ function WorkoutRow({ workout }: { workout: WorkoutDto }) {
       <p className="muted" style={{ margin: "6px 0 0" }}>
         {workout.scheduledAt ? formatTime(workout.scheduledAt) : "Unscheduled"}
         {sets.length ? ` · ${done}/${sets.length} sets` : ""}
+        {workout.notes?.includes("Apple Health") ? " · Apple Health" : ""}
       </p>
       {preview ? <p className="faint" style={{ margin: "4px 0 0" }}>{preview}</p> : null}
       <SetPreview workout={workout} />

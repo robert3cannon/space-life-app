@@ -149,6 +149,7 @@ export function SleepView() {
                     ? `${formatWhen(day.data.log.bedtime)} to ${formatTime(day.data.log.wakeAt)}`
                     : "Duration only"}
                   {day.data.log.quality ? ` · ${day.data.log.quality} of 5` : ""}
+                  {day.data.log.source === "health" ? " · Apple Health" : ""}
                 </p>
               </>
             ) : (

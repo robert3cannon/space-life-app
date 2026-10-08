@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, integer, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { AppSettings } from "../types";
 
 export const events = pgTable("events", {
@@ -35,6 +35,7 @@ export const workouts = pgTable("workouts", {
   status: text("status").notNull().default("planned"),
   notes: text("notes"),
   reminderMinutesBefore: integer("reminder_minutes_before"),
+  healthKey: text("health_key").unique(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
@@ -115,6 +116,7 @@ export const sleepLogs = pgTable("sleep_logs", {
   durationMinutes: integer("duration_minutes").notNull(),
   quality: integer("quality"),
   notes: text("notes"),
+  source: text("source").notNull().default("manual"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
@@ -127,6 +129,47 @@ export const habits = pgTable("habits", {
   remind: boolean("remind").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
+
+export const healthDays = pgTable("health_days", {
+  date: text("date").primaryKey(),
+  steps: integer("steps"),
+  activeKcal: doublePrecision("active_kcal"),
+  restingKcal: doublePrecision("resting_kcal"),
+  exerciseMinutes: doublePrecision("exercise_minutes"),
+  restingHr: doublePrecision("resting_hr"),
+  dietaryWaterOz: doublePrecision("dietary_water_oz"),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const healthWeights = pgTable("health_weights", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  measuredAt: timestamp("measured_at", { withTimezone: true, mode: "date" }).notNull().unique(),
+  pounds: doublePrecision("pounds").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const healthSync = pgTable("health_sync", {
+  id: text("id").primaryKey(),
+  syncedAt: timestamp("synced_at", { withTimezone: true, mode: "date" }).notNull(),
+  summary: jsonb("summary").notNull(),
+});
+
+export const healthTokens = pgTable("health_tokens", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const healthExports = pgTable(
+  "health_exports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    exportedAt: timestamp("exported_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [unique("health_exports_kind_source").on(table.kind, table.sourceId)],
+);
 
 export const habitChecks = pgTable("habit_checks", {
   id: uuid("id").primaryKey().defaultRandom(),

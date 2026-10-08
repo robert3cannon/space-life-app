@@ -90,7 +90,7 @@ const foods = [
 async function main() {
   assertCanSeed();
   const sql = getSql();
-  await sql`TRUNCATE activity, push_subscriptions, reminders, workout_sets, workout_exercises, workouts, food_logs, water_logs, sleep_logs, habit_checks, habits, events, settings, food_cache RESTART IDENTITY CASCADE`;
+  await sql`TRUNCATE activity, push_subscriptions, reminders, workout_sets, workout_exercises, workouts, food_logs, water_logs, sleep_logs, habit_checks, habits, health_exports, health_weights, health_days, health_sync, health_tokens, events, settings, food_cache RESTART IDENTITY CASCADE`;
   await getSettings();
 
   const today = todayDateString();

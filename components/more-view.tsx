@@ -9,6 +9,7 @@ const links = [
   { href: "/habits", title: "Habits", copy: "Check-ins, streaks, and a month view." },
   { href: "/reminders", title: "Reminders", copy: "Meals, water, wind-down, and custom nudges." },
   { href: "/activity", title: "Activity", copy: "Notes from your scheduler and coach bots." },
+  { href: "/settings/health", title: "Apple Health", copy: "Shortcut import, export, and the sync token." },
   { href: "/settings", title: "Settings", copy: "Targets, reminders, and notifications." },
 ];
 

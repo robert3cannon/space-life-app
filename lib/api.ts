@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { isAuthedRequest, isBotRequest } from "./auth";
+import { isAuthedRequest, isBotRequest, isHealthRequest } from "./auth";
 import { HttpError } from "./errors";
 
 export function json(data: unknown, status = 200) {
@@ -40,6 +40,17 @@ export function withUser<C>(handler: (req: Request, ctx: C) => Promise<Response>
   return async (req: Request, ctx: C) => {
     try {
       if (!(await isAuthedRequest(req))) return error("Unauthorized", 401);
+      return await handler(req, ctx);
+    } catch (err) {
+      return fromError(err);
+    }
+  };
+}
+
+export function withHealth<C>(handler: (req: Request, ctx: C) => Promise<Response>) {
+  return async (req: Request, ctx: C) => {
+    try {
+      if (!(await isHealthRequest(req))) return error("Unauthorized", 401);
       return await handler(req, ctx);
     } catch (err) {
       return fromError(err);

@@ -9,6 +9,9 @@ function isPublic(pathname: string) {
   if (pathname === "/api/auth/login") return true;
   if (pathname.startsWith("/api/bot/") || pathname === "/api/bot") return true;
   if (pathname.startsWith("/api/cron/")) return true;
+  if (pathname === "/api/apple-health/import") return true;
+  if (pathname === "/api/apple-health/export") return true;
+  if (pathname === "/api/apple-health/export/ack") return true;
   return false;
 }
 

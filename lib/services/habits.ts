@@ -1,8 +1,9 @@
 import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "../db";
-import { foodLogs, habitChecks, habits, waterLogs, workouts } from "../db/schema";
+import { foodLogs, habitChecks, habits, healthDays, waterLogs, workouts } from "../db/schema";
 import { HttpError } from "../errors";
 import { round1 } from "../format";
+import { STEPS_AUTO_GOAL } from "../health-activity";
 import { habitStreaks, isScheduled, scheduledDays } from "../streaks";
 import { addCalendarDays, getZonedParts, todayDateString, zonedDayRange } from "../time";
 import type { HabitAuto, HabitSummary } from "../types";
@@ -15,7 +16,7 @@ type HabitRow = typeof habits.$inferSelect;
 type CheckRow = typeof habitChecks.$inferSelect;
 
 function asAuto(value: string | null): HabitAuto | null {
-  if (value === "protein" || value === "water" || value === "workout") return value;
+  if (value === "protein" || value === "water" || value === "workout" || value === "steps") return value;
   return null;
 }
 
@@ -46,7 +47,7 @@ export async function reconcileAutoHabits(through = todayDateString()) {
     to: zonedDayRange(addCalendarDays(through, 1)).from,
   };
   const prefs = await getSettings();
-  const [foodRows, waterRows, workoutRows, checkRows] = await Promise.all([
+  const [foodRows, waterRows, workoutRows, checkRows, healthRows] = await Promise.all([
     db
       .select({ proteinG: foodLogs.proteinG, loggedAt: foodLogs.loggedAt })
       .from(foodLogs)
@@ -63,6 +64,10 @@ export async function reconcileAutoHabits(through = todayDateString()) {
       .select()
       .from(habitChecks)
       .where(inArray(habitChecks.habitId, autos.map((row) => row.id))),
+    db
+      .select({ date: healthDays.date, steps: healthDays.steps, dietaryWaterOz: healthDays.dietaryWaterOz })
+      .from(healthDays)
+      .where(and(gte(healthDays.date, fromDate), lt(healthDays.date, addCalendarDays(through, 1)))),
   ]);
 
   const protein = new Map<string, number>();
@@ -74,6 +79,12 @@ export async function reconcileAutoHabits(through = todayDateString()) {
   for (const row of waterRows) {
     const key = getZonedParts(row.loggedAt).date;
     ounces.set(key, round1((ounces.get(key) ?? 0) + row.ounces));
+  }
+  const healthSteps = new Map<string, number>();
+  const healthWater = new Map<string, number>();
+  for (const row of healthRows) {
+    if (row.steps != null) healthSteps.set(row.date, row.steps);
+    if (row.dietaryWaterOz != null) healthWater.set(row.date, row.dietaryWaterOz);
   }
   const trained = new Set<string>();
   for (const row of workoutRows) {
@@ -94,8 +105,10 @@ export async function reconcileAutoHabits(through = todayDateString()) {
         auto === "protein"
           ? (protein.get(date) ?? 0) >= prefs.targets.proteinG
           : auto === "water"
-            ? (ounces.get(date) ?? 0) >= prefs.waterGoalOz
-            : trained.has(date);
+            ? Math.max(ounces.get(date) ?? 0, healthWater.get(date) ?? 0) >= prefs.waterGoalOz
+            : auto === "steps"
+              ? (healthSteps.get(date) ?? 0) >= STEPS_AUTO_GOAL
+              : trained.has(date);
       const existing = checks.get(`${habit.id}:${date}`);
       if (met) {
         if (!existing) toInsert.push({ habitId: habit.id, date, source: "auto" });

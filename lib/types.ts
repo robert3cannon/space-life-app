@@ -37,7 +37,7 @@ export type ClockReminderSetting = {
   time: string;
 };
 
-export const HABIT_AUTOS = ["protein", "water", "workout"] as const;
+export const HABIT_AUTOS = ["protein", "water", "workout", "steps"] as const;
 export type HabitAuto = (typeof HABIT_AUTOS)[number];
 
 export type AppSettings = {
@@ -147,6 +147,7 @@ export type SleepDto = {
   durationMinutes: number;
   quality: number | null;
   notes: string | null;
+  source: "manual" | "health";
 };
 
 export type HabitSummary = {
@@ -194,4 +195,10 @@ export type TodayPayload = {
     trendMinutes: number | null;
   };
   habits: HabitSummary[];
+  health: {
+    steps: number | null;
+    activeKcal: number | null;
+    exerciseMinutes: number | null;
+    dietaryWaterOz: number | null;
+  } | null;
 };

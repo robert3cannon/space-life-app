@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { getDb } from "../db";
-import { waterLogs } from "../db/schema";
+import { healthDays, waterLogs } from "../db/schema";
 import { HttpError } from "../errors";
 import { round1 } from "../format";
 import { getZonedParts, todayDateString, zonedDateTimeToUtc, zonedDayRange, zonedWeekRange } from "../time";
@@ -54,11 +54,13 @@ export async function waterTotalOn(date: string) {
 
 export async function getWaterDay(date = todayDateString()) {
   const prefs = await getSettings();
+  const db = getDb();
   const day = zonedDayRange(date);
   const week = zonedWeekRange(date);
-  const [logs, weekLogs] = await Promise.all([
+  const [logs, weekLogs, health] = await Promise.all([
     listWaterBetween(day.from, day.to),
     listWaterBetween(week.from, week.to),
+    db.select({ dietaryWaterOz: healthDays.dietaryWaterOz }).from(healthDays).where(eq(healthDays.date, date)),
   ]);
   const byDate = new Map<string, number>();
   for (const log of weekLogs) {
@@ -70,6 +72,7 @@ export async function getWaterDay(date = todayDateString()) {
     goalOz: prefs.waterGoalOz,
     totalOz: sumOunces(logs),
     logs,
+    healthOz: health[0]?.dietaryWaterOz == null ? null : round1(health[0].dietaryWaterOz),
     week: {
       startDate: week.startDate,
       days: week.dates.map((item) => ({ date: item, ounces: byDate.get(item) ?? 0 })),

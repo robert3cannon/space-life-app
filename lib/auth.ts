@@ -4,6 +4,7 @@ import { COOKIE_NAME, SESSION_TTL_SECONDS, TIMEZONE } from "./constants";
 import { HttpError } from "./errors";
 import { displayName } from "./profile";
 import { createSessionToken, verifySessionToken } from "./session";
+import { deviceHealthToken } from "./services/health";
 import { readCookie } from "./text";
 
 export function safeEqual(a: string, b: string) {
@@ -40,6 +41,17 @@ export function isBotRequest(req: Request) {
   const header = req.headers.get("authorization") ?? "";
   if (!header.startsWith("Bearer ")) return false;
   return safeEqual(header.slice("Bearer ".length).trim(), expected);
+}
+
+export async function isHealthRequest(req: Request) {
+  const header = req.headers.get("authorization") ?? "";
+  if (!header.startsWith("Bearer ")) return false;
+  const token = header.slice("Bearer ".length).trim();
+  if (!token) return false;
+  const env = process.env.HEALTH_SYNC_TOKEN;
+  if (env && safeEqual(token, env)) return true;
+  const stored = await deviceHealthToken();
+  return Boolean(stored && safeEqual(token, stored));
 }
 
 export function isCronRequest(req: Request) {

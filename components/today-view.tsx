@@ -92,6 +92,24 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
         )}
       </section>
 
+      {data.health ? (
+        <Link href="/settings/health" className="card" style={{ display: "block", marginTop: 18 }}>
+          <span className="kicker">Apple Health</span>
+          <strong className="stat" style={{ display: "block", marginTop: 6 }}>
+            {data.health.steps != null ? `${data.health.steps.toLocaleString("en-US")} steps` : "Steps not in yet"}
+          </strong>
+          <span className="faint" style={{ display: "block", marginTop: 6 }}>
+            {data.health.activeKcal != null ? `${Math.round(data.health.activeKcal)} active kcal` : "No active calories"}
+            {data.health.exerciseMinutes != null ? ` · ${Math.round(data.health.exerciseMinutes)} exercise min` : ""}
+          </span>
+          {data.health.dietaryWaterOz != null ? (
+            <span className="faint" style={{ display: "block", marginTop: 4 }}>
+              Health water {ounces(data.health.dietaryWaterOz)} oz, kept out of the water log
+            </span>
+          ) : null}
+        </Link>
+      ) : null}
+
       <div className="pair">
         <Link href="/water" className="card pair-card">
           <span className="kicker">Water</span>

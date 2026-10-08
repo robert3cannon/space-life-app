@@ -16,6 +16,7 @@ function serialize(row: typeof sleepLogs.$inferSelect): SleepDto {
     durationMinutes: row.durationMinutes,
     quality: row.quality,
     notes: row.notes,
+    source: row.source === "health" ? "health" : "manual",
   };
 }
 
@@ -80,6 +81,7 @@ export async function logSleep(input: SleepLogInput, now = new Date()) {
     durationMinutes: window.durationMinutes,
     quality: input.quality ?? null,
     notes: blankToNull(input.notes),
+    source: "manual",
     updatedAt: new Date(),
   };
   const [existing] = await db.select().from(sleepLogs).where(eq(sleepLogs.wakeDate, window.wakeDate));

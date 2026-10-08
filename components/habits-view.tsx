@@ -29,6 +29,7 @@ const AUTO_OPTIONS: { value: "" | HabitAuto; label: string }[] = [
   { value: "protein", label: "Hit protein goal" },
   { value: "water", label: "Hit water goal" },
   { value: "workout", label: "Finish a workout" },
+  { value: "steps", label: "10,000 steps" },
 ];
 
 function scheduleLabel(days: number[] | null) {
@@ -40,6 +41,7 @@ function autoLabel(auto: HabitAuto | null) {
   if (auto === "protein") return "Fills in from protein";
   if (auto === "water") return "Fills in from water";
   if (auto === "workout") return "Fills in from a workout";
+  if (auto === "steps") return "Fills in at 10,000 steps";
   return null;
 }
 

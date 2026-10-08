@@ -16,6 +16,7 @@ type WaterDay = {
   goalOz: number;
   totalOz: number;
   logs: WaterDto[];
+  healthOz: number | null;
   week: { startDate: string; days: { date: string; ounces: number }[] };
 };
 
@@ -116,6 +117,11 @@ export function WaterView() {
                 <p className="kicker">Today</p>
                 <p className="stat">{oz(day.data.totalOz)} oz</p>
                 <p className="muted" style={{ margin: "6px 0 0" }}>of {day.data.goalOz} oz</p>
+                {day.data.healthOz != null ? (
+                  <p className="faint" style={{ margin: "6px 0 0" }}>
+                    Apple Health has {oz(day.data.healthOz)} oz. The ring stays on what you log here, so an export does not double it.
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>

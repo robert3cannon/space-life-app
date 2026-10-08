@@ -3,6 +3,7 @@ process.env.APP_PASSWORD = "test-passcode";
 process.env.SESSION_SECRET = "test-session-secret-value";
 process.env.BOT_API_TOKEN = "test-bot-token-value";
 process.env.CRON_SECRET = "test-cron-secret-value";
+process.env.HEALTH_SYNC_TOKEN = "test-health-token-value";
 process.env.VAPID_SUBJECT = "mailto:test@example.com";
 process.env.VAPID_PUBLIC_KEY = "test-public-key";
 process.env.VAPID_PRIVATE_KEY = "test-private-key";

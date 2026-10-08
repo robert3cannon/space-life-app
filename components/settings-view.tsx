@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import type { AppSettings } from "@/lib/types";
@@ -148,6 +149,11 @@ export function SettingsView() {
       <p className="kicker">Orbit</p>
       <h1 className="display">Settings</h1>
       <p className="sub">Times stay on America/Detroit, even if the phone is set somewhere else.</p>
+
+      <Link href="/settings/health" className="card link-card" style={{ marginTop: 18 }}>
+        <strong>Apple Health</strong>
+        <span>Sync token, last import, and the Shortcuts setup.</span>
+      </Link>
 
       <section className="card" style={{ marginTop: 18 }}>
         <p className="kicker">iPhone home screen</p>

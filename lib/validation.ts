@@ -219,6 +219,15 @@ export const pushSubscribeSchema = z.object({
   }),
 });
 
+export const healthAckSchema = z.object({
+  food: z.array(z.string().uuid()).max(200).optional(),
+  water: z.array(z.string().uuid()).max(200).optional(),
+});
+
+export const healthTokenSchema = z.object({
+  action: z.enum(["generate", "revoke"]),
+});
+
 export const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
@@ -238,3 +247,5 @@ export type SleepLogInput = z.infer<typeof sleepLogSchema>;
 export type HabitCreate = z.infer<typeof habitCreateSchema>;
 export type HabitPatch = z.infer<typeof habitPatchSchema>;
 export type HabitCheckInput = z.infer<typeof habitCheckSchema>;
+export type HealthAck = z.infer<typeof healthAckSchema>;
+export type HealthTokenAction = z.infer<typeof healthTokenSchema>;

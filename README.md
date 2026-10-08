@@ -46,6 +46,7 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with `APP_PASSWO
 | `USER_NAME` | no | Greeting name. Defaults to Robert. |
 | `ALLOW_SEED` | no | Set to `1` to allow `npm run seed` against production. |
 | `USDA_API_KEY` | no | FoodData Central key for food search and barcodes. If unset, the app uses `DEMO_KEY`, which is heavily rate limited. Get a free key at [fdc.nal.usda.gov/api-key-signup](https://fdc.nal.usda.gov/api-key-signup). |
+| `HEALTH_SYNC_TOKEN` | no | Bearer token for the Apple Health shortcut endpoints. Settings can mint a separate device token. Either one is accepted. |
 
 Generate VAPID keys:
 
@@ -63,7 +64,7 @@ Put the public key in `VAPID_PUBLIC_KEY` and the private key in `VAPID_PRIVATE_K
 | `npm run build` / `npm start` | Production build and server |
 | `npm run migrate` | Apply `drizzle/*.sql` once, tracked in `schema_migrations` |
 | `npm run seed` | Replace data with the example week |
-| `npm test` | Timezone, session, API, reminder dispatch, and VAPID signing tests |
+| `npm test` | Timezone, sleep, streaks, Apple Health shortcut payloads, session, API, reminder dispatch, and VAPID signing tests |
 | `npm run icons` | Regenerate the PWA icons and splash screens |
 
 On Vercel the install uses `vercel-build`, which migrates and then builds. Seed is never part of deploy, so a new production database starts empty.
@@ -103,17 +104,142 @@ The manifest uses `display: standalone`, a dark theme color (`#060514`), and spl
 
 ## What the app does
 
-- **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, water and last night's sleep, habits due today, today's workout (or the next one), pending reminders, and the latest bot notes.
+- **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, water and last night's sleep, habits due today, steps and active calories when Apple Health has synced, today's workout (or the next one), pending reminders, and the latest bot notes.
 - **Schedule.** Day and week views. Create, edit, and delete blocks of type class, work, study, workout, meal, or other. Optional reminder before the start.
 - **Food.** Log meals with calories and protein, carbs, and fat. Search USDA FoodData Central and Open Food Facts by name, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
 - **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history. The exercise library (100+ movements) shows the muscles each one trains, a front and back body map, and a two-frame form demo. Tap a muscle to list what hits it. A session and the current week each roll those muscles up so you can see what you trained and what you skipped.
 - **Water and sleep.** Water has a daily ounce goal (default 100, editable) and quick adds of 8, 16, or 24 oz, plus a custom amount. Sleep is logged as bedtime and wake time, or as a duration, with an optional 1–5 quality. A bedtime after midnight still belongs to the morning you woke up, which is the usual case when wake time is around 11:00 AM. Both have a weekly chart.
-- **Habits.** Daily habits, or specific weekdays. Check them off on Today. Current and best streaks skip an unfinished today and skip days that are not scheduled. Protein, water, and a finished workout can fill a habit in from data already in the app. Each habit has a month calendar. An optional evening reminder covers the ones still open.
+- **Habits.** Daily habits, or specific weekdays. Check them off on Today. Current and best streaks skip an unfinished today and skip days that are not scheduled. Protein, water, a finished workout, and 10,000 Apple Health steps can fill a habit in. Each habit has a month calendar. An optional evening reminder covers the ones still open.
 - **Reminders.** Custom reminders, plus automatic ones for events, workouts, and meals (default 11:30 breakfast, 3:00 lunch, 8:00 dinner — late on purpose). Optional water nudges only at 11:00 or later, a wind-down that can be after midnight, and an evening habit reminder.
 - **Activity.** Short notes from you or from bots.
-- **Settings.** Targets, the water goal, meal and wellness reminder times, and notification setup.
+- **Settings.** Targets, the water goal, meal and wellness reminder times, and notification setup. Apple Health lives at Settings → Apple Health: the sync token, last import, weight trend, and the Shortcuts steps.
 
 The UI is one account. Middleware redirects everyone else to `/login`. The session cookie is HTTP-only, `SameSite=Lax`, and `Secure` in production.
+
+## Apple Health
+
+A PWA cannot read HealthKit. Orbit takes a JSON batch from an iOS Shortcut and can hand today's food and water back so the shortcut can write them with **Log Health Sample**.
+
+Open **Settings → Apple Health** (also under More). Generate a device token there, or set `HEALTH_SYNC_TOKEN` on the server. The shortcut sends `Authorization: Bearer <token>`. Regenerate replaces the device token. Revoke turns it off. The server token keeps working after a revoke. The same screen shows the last sync and a weight trend, and it fills in the three addresses for this install:
+
+- `POST /api/apple-health/import`
+- `GET /api/apple-health/export`
+- `POST /api/apple-health/export/ack`
+
+Those three routes are outside the session cookie. `/api/health` is still only the liveness check. Do not post samples there.
+
+Sending the same day again updates steps, energy, exercise minutes, resting heart rate, and dietary water. It does not insert a second row. Workouts match on `id` when the shortcut sends one, otherwise on type plus start plus end. Weight samples match on the timestamp. A date with no time is stored at noon Detroit. Times with no timezone are America/Detroit, so `10/8/2026, 1:30 AM` in October is Eastern Daylight Time.
+
+Sleep fills an empty morning, or a morning already filled from Apple Health. A night you logged yourself stays. Clear that morning in Sleep if you want the next sync to replace it. When Health sends asleep segments, those are the duration. In-bed time is used only when there is no asleep segment. Awake segments are ignored.
+
+Dietary water stays out of the water log, so exporting Orbit water does not double what Health already recorded. The water ring is what you log in Orbit. A water habit can still complete from whichever number is higher. A steps habit completes at 10,000. Imported workouts show in history. Running, walking, hiking, cycling, rowing, and core count on the weekly muscle map. Strength training, yoga, and swimming are listed without a guessed muscle group.
+
+Apple signs shortcut files. An unsigned `.shortcut` file from this repo would not install, so the steps below are the install path. They match the screen in the app. Search the Shortcuts library for the bold action names.
+
+### Import shortcut
+
+1. Open Shortcuts, tap +, and name it **Orbit Health Import**.
+2. Add **Date**. Leave it as Current Date.
+3. Add **Format Date**. Date Format: Custom. Format String: `yyyy-MM-dd`. This text is the date.
+4. Add **Find Health Samples**. Type: **Steps**. For Start Date, choose Current Date, tap that date token, and choose **Start of Day**. End Date: Current Date.
+5. Add **Calculate Statistics**. Health Samples: the Steps result. Statistic: **Sum**. That number is steps.
+6. Repeat **Find Health Samples** and **Calculate Statistics** for the rest of the day. Use Sum unless noted.
+   - Active Energy → `activeEnergy`
+   - Resting Energy. If the type list says Basal Energy Burned, use that. → `restingEnergy`
+   - Exercise Time, or Apple Exercise Time → `exerciseMinutes`
+   - Dietary Water → `dietaryWater`
+   - Resting Heart Rate, statistic **Most Recent** → `restingHeartRate`
+   - Weight, or Body Mass, statistic **Most Recent** → `weight`
+7. Add **Find Health Samples**. Type: **Workouts**. Same Start of Day through Current Date.
+8. Add **Repeat with Each** over those workouts. Inside the repeat, add **Dictionary**. Fill each key with **Get Details of Health Sample** on the Repeat Item:
+   - `type` → Workout Type
+   - `start` → Start Date
+   - `end` → End Date
+   - `duration` → Duration
+   - `calories` → Total Energy Burned, or Energy Burned
+   - `distance` → Total Distance
+   Leave `id` blank. The same type, start, and end update one workout. Then **Add to Variable** named `Workouts`.
+9. Add **Find Health Samples**. Type: **Sleep**. Last night started yesterday, so set Start Date to Start of Day, then **Adjust Date** to subtract 1 day. End Date: Current Date.
+10. Add **Repeat with Each** over the sleep samples. Inside, **Dictionary**:
+    - `state` → Value. If the detail list says Category or Sleep Analysis, use that. Asleep, In Bed, and Awake are all accepted.
+    - `start` → Start Date
+    - `end` → End Date
+    **Add to Variable** named `Sleep`.
+11. Add **Dictionary** for the body:
+    - `date` → the `yyyy-MM-dd` text
+    - `steps`, `activeEnergy`, `restingEnergy`, `exerciseMinutes`, `restingHeartRate`, `weight`, `dietaryWater` → the statistics above
+    - `workouts` → `Workouts`
+    - `sleep` → `Sleep`
+    Skip a key you did not collect. Numbers may be text, including commas.
+12. Add **Text**. Type `Bearer`, then a space, then paste the token. No quotes.
+13. Add **Get Contents of URL**. URL: the import address. Method: POST. Headers: Key `Authorization`, Value the Text action. Request Body: JSON. JSON: the dictionary from the previous step.
+14. Add **Show Result** if you want to see the reply. Run it once by hand and allow each Health type iOS asks for. A good reply includes `"ok": true`.
+
+Example body:
+
+```json
+{
+  "date": "2026-10-08",
+  "steps": "8,421",
+  "activeEnergy": "412 kcal",
+  "restingEnergy": "1,680",
+  "exerciseMinutes": "32",
+  "restingHeartRate": "58",
+  "weight": "172.4 lb",
+  "dietaryWater": "40 fl oz",
+  "workouts": [
+    {
+      "type": "Running",
+      "start": "10/8/2026, 6:15 AM",
+      "end": "10/8/2026, 7:02 AM",
+      "duration": "47",
+      "calories": "480",
+      "distance": "4.2 mi"
+    }
+  ],
+  "sleep": [
+    { "state": "Asleep", "start": "10/7/2026, 11:55 PM", "end": "10/8/2026, 10:40 AM" }
+  ]
+}
+```
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $HEALTH_SYNC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-08","steps":"8421"}' \
+  "$BASE/api/apple-health/import"
+```
+
+### Export shortcut
+
+This reads today's Orbit meals and water, writes them with **Log Health Sample**, then tells Orbit which ids were written.
+
+1. Create a shortcut named **Orbit Health Export**.
+2. Add **Get Contents of URL**. URL: the export address. Method: GET. Header `Authorization` with the same Bearer text.
+3. Add **Get Dictionary Value**. Key: `food`. Dictionary: the Contents of URL.
+4. Add **Repeat with Each**. Inside, add four **Log Health Sample** actions. Date for each is the Repeat Item's `loggedAt`, via **Get Dictionary Value**:
+   - Dietary Energy, value `calories`, unit kcal
+   - Dietary Protein, value `proteinG`, unit g
+   - Dietary Carbohydrates, value `carbsG`, unit g
+   - Total Fat, value `fatG`, unit g
+   Then **Add to Variable** named `WrittenFood`, value the Repeat Item's `id`. Add the id only after the four samples succeed.
+5. Add **Get Dictionary Value**. Key: `water`. Use the original Contents of URL, not the repeat item.
+6. Add **Repeat with Each**. **Log Health Sample**, type Dietary Water, value `ounces`, unit fl oz, date `loggedAt`. Then **Add to Variable** named `WrittenWater` with the id.
+7. Add **Dictionary**. `food` → `WrittenFood`. `water` → `WrittenWater`. An empty list is fine when nothing was new.
+8. Add **Get Contents of URL**. URL: the acknowledge address. Method: POST. Same Authorization header. Request Body: JSON, set to that dictionary. The next export leaves those items out. Sending the same ids again does nothing.
+
+`GET /api/apple-health/export` returns `{ date, timezone, food, water }` for today in Detroit. Each food item has `id`, `name`, `meal`, `calories`, `proteinG`, `carbsG`, `fatG`, and `loggedAt`. Each water item has `id`, `ounces`, and `loggedAt`. Items already acknowledged are omitted.
+
+### Daily automation
+
+1. In Shortcuts, open the Automation tab and tap +.
+2. Tap **Time of Day**.
+3. Set 9:00 PM, Repeat Daily, then Next.
+4. Choose New Blank Automation.
+5. Add **Run Shortcut** and choose Orbit Health Import.
+6. Add **Run Shortcut** and choose Orbit Health Export.
+7. Turn off **Ask Before Running**, then tap Done.
+8. The first run still asks for Health access. After you allow it, iOS may show a notification instead of running a Health shortcut while the phone is locked. Tap that notification if it appears.
 
 ## Bot API
 
@@ -383,7 +509,7 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
 | DELETE | `/api/bot/habits/:id` | Delete the habit and its checks |
 | POST | `/api/bot/habits/:id/check` | `{ "done": true, "date"? }` |
 
-`days` is an array of weekdays, Sunday `0` through Saturday `6`. Omit it, or send `null`, for every day. `auto` is `protein`, `water`, `workout`, or `null`. Those fill in from food, water, and finished workouts. Unchecking an auto habit stays off (`source: "skip"`) even if the goal is still met. `remind: true` includes the habit in the evening reminder.
+`days` is an array of weekdays, Sunday `0` through Saturday `6`. Omit it, or send `null`, for every day. `auto` is `protein`, `water`, `workout`, `steps`, or `null`. Protein, water, and a finished workout fill in from Orbit. `steps` fills in at 10,000 Apple Health steps. Water also counts dietary water imported from Health when that number is higher than the Orbit log. Unchecking an auto habit stays off (`source: "skip"`) even if the goal is still met. `remind: true` includes the habit in the evening reminder.
 
 An unfinished today does not break `currentStreak`. Days off the schedule do not break it either.
 
@@ -401,4 +527,4 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 ## Tests
 
-`npm test` uses `postgres://orbit:orbit@localhost:5432/orbit_test` and will not touch the dev database. It covers Detroit time (including the spring-forward change), after-midnight sleep, habit streaks, session cookies, passcode and bot auth, event reminders, food totals, workout completion, meal-reminder creation, cron auth, and VAPID request signing. Push delivery is exercised with a fake subscription and a closed local endpoint, not a real iPhone.
+`npm test` uses `postgres://orbit:orbit@localhost:5432/orbit_test` and will not touch the dev database. It covers Detroit time (including the spring-forward change), after-midnight sleep, habit streaks, Apple Health shortcut dates and idempotent imports, session cookies, passcode and bot auth, event reminders, food totals, workout completion, meal-reminder creation, cron auth, and VAPID request signing. Push delivery is exercised with a fake subscription and a closed local endpoint, not a real iPhone.
