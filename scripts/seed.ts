@@ -3,6 +3,7 @@ import { createEvent } from "../lib/services/events";
 import { createFood } from "../lib/services/food";
 import { createReminder, ensureMealReminders } from "../lib/services/reminders";
 import { getSettings } from "../lib/services/settings";
+import { resolveExercise } from "../lib/exercises";
 import { createWorkout, updateWorkout } from "../lib/services/workouts";
 import { closeDb, getSql } from "../lib/db";
 import { addCalendarDays, calendarWeekday, todayDateString, weekStartDate } from "../lib/time";
@@ -113,6 +114,7 @@ async function main() {
         reminderMinutesBefore: 30,
         exercises: plan.map((exercise) => ({
           name: exercise.name,
+          libraryId: resolveExercise(null, exercise.name)?.id ?? null,
           sets: exercise.sets.map((set) => ({
             reps: set.reps ?? null,
             weight: set.weight ?? null,

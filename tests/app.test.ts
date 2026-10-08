@@ -14,7 +14,7 @@ import { createEvent, deleteEvent } from "../lib/services/events";
 import { createFood, foodSummary, recentFoods } from "../lib/services/food";
 import { createReminder, dispatchReminders, ensureMealReminders, listReminders } from "../lib/services/reminders";
 import { getSettings, updateSettings } from "../lib/services/settings";
-import { createWorkout, getWorkout, updateWorkout } from "../lib/services/workouts";
+import { appendWorkoutExercise, createWorkout, getWorkout, muscleCoverage, updateWorkout } from "../lib/services/workouts";
 import { saveSubscription, setPushSender, subscriptionCount } from "../lib/push";
 import { migrate } from "../scripts/migrate";
 import { zonedDateTimeToUtc } from "../lib/time";
@@ -171,6 +171,30 @@ describe("orbit data and bot API", () => {
     const reminders = await listReminders();
     assert.equal(reminders.upcoming.some((reminder) => reminder.relatedId === workout.id), false);
     assert.ok(await getWorkout(workout.id));
+  });
+
+  it("appends a library exercise without replacing the session", async () => {
+    const workout = await createWorkout({
+      title: "Core",
+      date: "2026-10-06",
+      time: "18:00",
+      exercises: [{ name: "Bench press", sets: [{ reps: 8, weight: 95, weightUnit: "lb" }] }],
+    });
+    const setId = workout.exercises[0].sets[0].id;
+    const added = await appendWorkoutExercise(workout.id, { libraryId: "Plank" });
+    assert.equal(added.exercises.length, 2);
+    assert.equal(added.exercises[0].sets[0].id, setId);
+    assert.equal(added.exercises[1].name, "Plank");
+    assert.equal(added.exercises[1].libraryId, "Plank");
+    assert.equal(added.exercises[1].sets[0].durationSeconds, 30);
+    assert.equal(added.exercises[0].catalogId, "Barbell_Bench_Press_-_Medium_Grip");
+    assert.ok(added.muscles.primary.includes("mid_chest"));
+    const done = await updateWorkout(added.id, { status: "done" });
+    assert.equal(done.exercises[1].sets.every((set) => set.completed), true);
+    const week = await muscleCoverage("2026-10-08");
+    assert.ok(week.primary.includes("mid_chest"));
+    assert.ok(week.primary.includes("lower_abs"));
+    assert.ok(week.neglected.includes("quads"));
   });
 
   it("materializes meal reminders and dispatches only what is due", async () => {

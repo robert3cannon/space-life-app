@@ -44,9 +44,19 @@ const setSchema = z.object({
 
 const exerciseSchema = z.object({
   name: z.string().trim().min(1).max(120),
+  libraryId: z.string().trim().min(1).max(160).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   sets: z.array(setSchema).max(30).optional(),
 });
+
+export const exerciseAppendSchema = z
+  .object({
+    libraryId: z.string().trim().min(1).max(160).optional(),
+    name: z.string().trim().min(1).max(120).optional(),
+    notes: z.string().trim().max(500).nullable().optional(),
+    sets: z.array(setSchema).max(30).optional(),
+  })
+  .refine((value) => Boolean(value.libraryId || value.name), "Provide a library exercise or a name");
 
 export const workoutCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -144,5 +154,6 @@ export type FoodPatch = z.infer<typeof foodPatchSchema>;
 export type WorkoutCreate = z.infer<typeof workoutCreateSchema>;
 export type WorkoutPatch = z.infer<typeof workoutPatchSchema>;
 export type ExerciseInput = z.infer<typeof exerciseSchema>;
+export type ExerciseAppend = z.infer<typeof exerciseAppendSchema>;
 export type ReminderCreate = z.infer<typeof reminderCreateSchema>;
 export type ReminderPatch = z.infer<typeof reminderPatchSchema>;

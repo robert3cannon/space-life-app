@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { formatTime, formatWeight, formatDuration } from "@/lib/format";
+import { muscleLabel } from "@/lib/muscles";
 import { getZonedParts } from "@/lib/time";
 import type { WorkoutDto } from "@/lib/types";
+import { BodyMap } from "./body-map";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
 type Board = { today: string; upcoming: WorkoutDto[]; history: WorkoutDto[] };
+type Coverage = { primary: string[]; secondary: string[]; neglected: string[] };
 type SetDraft = { reps: string; weight: string; duration: string };
-type ExDraft = { name: string; sets: SetDraft[] };
+type ExDraft = { name: string; libraryId?: string; sets: SetDraft[] };
+type LibraryHit = { id: string; name: string; equipment: string; primary: string[] };
 
 const newSet = (): SetDraft => ({ reps: "8", weight: "", duration: "" });
 
@@ -27,7 +32,11 @@ export function WorkoutsView() {
   const [exercises, setExercises] = useState<ExDraft[]>([{ name: "", sets: [newSet()] }]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [lookup, setLookup] = useState("");
+  const [hits, setHits] = useState<LibraryHit[]>([]);
   const toast = useToast();
+  const router = useRouter();
+  const coverage = useLoad<Coverage>("/api/workouts/coverage");
 
   function startNew() {
     const parts = getZonedParts(new Date());
@@ -36,9 +45,26 @@ export function WorkoutsView() {
     setTime("18:00");
     setReminder("30");
     setExercises([{ name: "", sets: [newSet()] }]);
+    setLookup("");
+    setHits([]);
     setFormError(null);
     setOpen(true);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    const needle = lookup.trim();
+    if (needle.length < 2) {
+      setHits([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      void api<{ exercises: LibraryHit[] }>(`/api/exercises?q=${encodeURIComponent(needle)}&limit=6`)
+        .then((result) => setHits(result.exercises))
+        .catch(() => setHits([]));
+    }, 180);
+    return () => clearTimeout(handle);
+  }, [lookup, open]);
 
   async function save() {
     setSaving(true);
@@ -55,6 +81,7 @@ export function WorkoutsView() {
             .filter((exercise) => exercise.name.trim())
             .map((exercise) => ({
               name: exercise.name,
+              libraryId: exercise.libraryId ?? null,
               sets: exercise.sets.map((set) => ({
                 reps: set.reps === "" ? null : Number(set.reps),
                 weight: set.weight === "" ? null : Number(set.weight),
@@ -79,7 +106,23 @@ export function WorkoutsView() {
       <PageTitle title="Train" />
       <p className="kicker">Training</p>
       <h1 className="display" style={{ fontSize: 32 }}>Workouts</h1>
-      <p className="sub">Plan the session, check off sets, keep the history.</p>
+      <p className="sub">Plan the session, check off sets, and see which muscles you trained.</p>
+      <Link href="/exercises" className="btn-ghost" style={{ display: "block", textAlign: "center", marginBottom: 16 }}>Exercise library</Link>
+      {coverage.data ? (
+        <section className="card" style={{ marginBottom: 16 }}>
+          <strong>This week</strong>
+          <BodyMap
+            primary={coverage.data.primary}
+            secondary={coverage.data.secondary}
+            neglected={coverage.data.neglected}
+            onSelect={(muscle) => router.push(`/exercises?muscle=${muscle}`)}
+            label="Muscles trained this week"
+          />
+          {coverage.data.neglected.length ? (
+            <p className="faint">Quiet so far: {coverage.data.neglected.slice(0, 6).map(muscleLabel).join(", ")}</p>
+          ) : <p className="faint">Every muscle group got some work.</p>}
+        </section>
+      ) : null}
       {loading && !data ? <Loading /> : null}
       {error ? <ErrorNote message={error} onRetry={reload} /> : null}
       {data ? (
@@ -113,6 +156,28 @@ export function WorkoutsView() {
               <option value="60">1 hour before</option>
             </select>
           </label>
+          <label className="field">
+            <span>From the library</span>
+            <input value={lookup} onChange={(event) => setLookup(event.target.value)} placeholder="Search exercises" />
+          </label>
+          {hits.length ? (
+            <div className="stack" style={{ marginBottom: 12 }}>
+              {hits.map((hit) => (
+                <button
+                  key={hit.id}
+                  className="btn-ghost"
+                  type="button"
+                  onClick={() => {
+                    setExercises((current) => [...current.filter((exercise) => exercise.name.trim()), { name: hit.name, libraryId: hit.id, sets: [newSet(), newSet(), newSet()] }]);
+                    setLookup("");
+                    setHits([]);
+                  }}
+                >
+                  {hit.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {exercises.map((exercise, index) => (
             <fieldset key={index} className="card" style={{ marginBottom: 12 }}>
               <label className="field"><span>Exercise</span><input value={exercise.name} onChange={(event) => updateExercise(setExercises, index, { ...exercise, name: event.target.value })} placeholder="Bench press" /></label>

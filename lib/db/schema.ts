@@ -45,6 +45,7 @@ export const workoutExercises = pgTable("workout_exercises", {
   name: text("name").notNull(),
   position: integer("position").notNull().default(0),
   notes: text("notes"),
+  libraryId: text("library_id"),
 });
 
 export const workoutSets = pgTable("workout_sets", {

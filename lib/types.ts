@@ -74,6 +74,8 @@ export type SetDto = {
 export type ExerciseDto = {
   id: string;
   name: string;
+  libraryId: string | null;
+  catalogId: string | null;
   position: number;
   notes: string | null;
   sets: SetDto[];
@@ -88,6 +90,7 @@ export type WorkoutDto = {
   notes: string | null;
   reminderMinutesBefore: number | null;
   exercises: ExerciseDto[];
+  muscles: { primary: string[]; secondary: string[] };
   createdAt: string;
   updatedAt: string;
 };

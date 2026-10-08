@@ -106,7 +106,7 @@ The manifest uses `display: standalone`, a dark theme color (`#060514`), and spl
 - **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, today's workout (or the next one), pending reminders, and the latest bot notes.
 - **Schedule.** Day and week views. Create, edit, and delete blocks of type class, work, study, workout, meal, or other. Optional reminder before the start.
 - **Food.** Log meals with calories and protein, carbs, and fat. Search USDA FoodData Central and Open Food Facts by name, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
-- **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history.
+- **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history. The exercise library (100+ movements) shows the muscles each one trains, a front and back body map, and a two-frame form demo. Tap a muscle to list what hits it. A session and the current week each roll those muscles up so you can see what you trained and what you skipped.
 - **Reminders.** Custom reminders, plus automatic ones for events, workouts, and meals (default 11:30 breakfast, 3:00 lunch, 8:00 dinner — late on purpose).
 - **Activity.** Short notes from you or from bots.
 - **Settings.** Targets, meal reminder times, and notification setup.
@@ -218,7 +218,36 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 Each exercise has `sets`. A set needs `reps` or `durationSeconds` (or both). `weight` is a number and `weightUnit` is `lb` (default) or `kg`.
 
-PATCH accepts any of: normal fields, `exercises` (replaces the list), `status` (`planned`, `done`, `skipped`), and `setCompleted: { "setId", "completed" }`. Marking `done` checks off every set and cancels the pending reminder.
+PATCH accepts any of: normal fields, `exercises` (replaces the list), `status` (`planned`, `done`, `skipped`), and `setCompleted: { "setId", "completed" }`. Marking `done` checks off every set and cancels the pending reminder. An exercise may include `libraryId` from the catalog below. Replacing `exercises` deletes the previous sets, so prefer the append route when you are adding one movement to a session that already has logged sets.
+
+`POST /api/bot/workouts/:id/exercises` appends one exercise. Send `{ "libraryId": "Plank" }` and Orbit fills three holds. For a normal lift, send sets yourself or omit them for three sets of 8. The response is the full workout.
+
+`GET /api/bot/workouts/coverage?date=YYYY-MM-DD` is the Monday–Sunday week containing that day (today in Detroit if you omit it). It returns `primary`, `secondary`, and `neglected` muscle ids for sessions marked done.
+
+### Exercise library
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/exercises` | Catalog. Optional `q`, `muscle`, `equipment`, `limit` (1–200, default 40) |
+| GET | `/api/bot/exercises/:id` | One exercise, with steps, mistakes, and image URLs |
+
+`muscle` matches primary or secondary. Primary hits are listed first. `equipment` is `bodyweight`, `dumbbell`, `barbell`, `machine`, `cable`, or `other`.
+
+Muscle ids: `upper_abs`, `lower_abs`, `obliques`, `biceps`, `triceps`, `forearms`, `front_delts`, `side_delts`, `rear_delts`, `upper_chest`, `mid_chest`, `lower_chest`, `lats`, `traps`, `mid_back`, `lower_back`, `glutes`, `quads`, `hamstrings`, `calves`, `adductors`, `abductors`, `hip_flexors`.
+
+```bash
+curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "$BASE/api/bot/exercises?muscle=lower_abs"
+
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"libraryId":"Hanging_Leg_Raise"}' \
+  "$BASE/api/bot/workouts/WORKOUT_ID/exercises"
+```
+
+The same routes exist under `/api/exercises` for the signed-in app. Images are start and finish frames (there is no GIF in this dataset). The app crossfades them. Each exercise also links to a YouTube search for a longer tutorial.
+
+Form photos and the written steps come from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) by yuhonas, released under the [Unlicense](https://unlicense.org/) (public domain). Orbit does not vendor the JPEGs. It loads them from jsDelivr pinned to commit `f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5`. The fine muscle groups (upper abs versus lower abs, front versus rear delts, and so on) are Orbit's labels, derived from that dataset's coarser muscle list plus the exercise name. The body diagram is original.
 
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \

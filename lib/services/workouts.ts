@@ -2,10 +2,12 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-or
 import { getDb } from "../db";
 import { workoutExercises, workoutSets, workouts } from "../db/schema";
 import { HttpError } from "../errors";
-import { getZonedParts, todayDateString, zonedDateTimeToUtc } from "../time";
+import { combineMuscles, getExercise, resolveExercise } from "../exercises";
+import { MUSCLE_IDS } from "../muscles";
+import { addCalendarDays, getZonedParts, todayDateString, zonedDateTimeToUtc, zonedWeekRange } from "../time";
 import { blankToNull } from "../text";
 import type { WorkoutDto } from "../types";
-import type { ExerciseInput, WorkoutCreate, WorkoutPatch } from "../validation";
+import type { ExerciseAppend, ExerciseInput, WorkoutCreate, WorkoutPatch } from "../validation";
 import { serializeExercise, serializeSet, serializeWorkout } from "./dto";
 import { clearPendingReminder, syncWorkoutReminder } from "./reminders";
 import { getSettings } from "./settings";
@@ -45,6 +47,7 @@ async function insertExercises(tx: Tx, workoutId: string, exercises: ExerciseInp
       .values({
         workoutId,
         name: exercise.name,
+        libraryId: exercise.libraryId ?? null,
         position: index,
         notes: blankToNull(exercise.notes),
       })
@@ -81,19 +84,21 @@ async function hydrate(rows: Array<typeof workouts.$inferSelect>): Promise<Worko
         .where(inArray(workoutSets.exerciseId, exerciseIds))
         .orderBy(asc(workoutSets.position))
     : [];
-  return rows.map((row) =>
-    serializeWorkout(
+  return rows.map((row) => {
+    const workout = serializeWorkout(
       row,
       exercises
         .filter((exercise) => exercise.workoutId === row.id)
-        .map((exercise) =>
-          serializeExercise(
+        .map((exercise) => {
+          const dto = serializeExercise(
             exercise,
             sets.filter((set) => set.exerciseId === exercise.id).map(serializeSet),
-          ),
-        ),
-    ),
-  );
+          );
+          return { ...dto, catalogId: resolveExercise(exercise.libraryId, exercise.name)?.id ?? null };
+        }),
+    );
+    return { ...workout, muscles: workoutMuscleMap(workout) };
+  });
 }
 
 export async function getWorkout(id: string) {
@@ -238,6 +243,95 @@ export async function updateWorkout(id: string, patch: WorkoutPatch) {
   const workout = await getWorkout(id);
   if (!workout) throw new HttpError("Workout not found", 404);
   return workout;
+}
+
+function defaultSets(name: string): NonNullable<ExerciseAppend["sets"]> {
+  if (/plank|hold|dead bug|wall sit|hollow/i.test(name)) {
+    return [{ durationSeconds: 30 }, { durationSeconds: 30 }, { durationSeconds: 30 }];
+  }
+  return [
+    { reps: 8, weight: null, weightUnit: "lb" },
+    { reps: 8, weight: null, weightUnit: "lb" },
+    { reps: 8, weight: null, weightUnit: "lb" },
+  ];
+}
+
+export async function appendWorkoutExercise(workoutId: string, input: ExerciseAppend) {
+  const current = await loadRow(workoutId);
+  if (!current) throw new HttpError("Workout not found", 404);
+  const catalog = input.libraryId ? getExercise(input.libraryId) : null;
+  if (input.libraryId && !catalog) throw new HttpError("Exercise not found", 404);
+  const name = input.name?.trim() || catalog?.name;
+  if (!name) throw new HttpError("Provide a library exercise or a name", 400);
+  const sets = input.sets?.length ? input.sets : defaultSets(name);
+  for (const set of sets) {
+    if (set.reps == null && set.durationSeconds == null) {
+      throw new HttpError(`Add reps or a duration for ${name}`, 400);
+    }
+  }
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ position: workoutExercises.position })
+      .from(workoutExercises)
+      .where(eq(workoutExercises.workoutId, workoutId));
+    const position = existing.reduce((max, row) => Math.max(max, row.position), -1) + 1;
+    const [created] = await tx
+      .insert(workoutExercises)
+      .values({
+        workoutId,
+        name,
+        libraryId: catalog?.id ?? input.libraryId ?? null,
+        position,
+        notes: blankToNull(input.notes),
+      })
+      .returning();
+    await tx.insert(workoutSets).values(
+      sets.map((set, setIndex) => ({
+        exerciseId: created.id,
+        position: setIndex,
+        reps: set.reps ?? null,
+        weight: set.weight ?? null,
+        weightUnit: set.weightUnit ?? "lb",
+        durationSeconds: set.durationSeconds ?? null,
+        completed: set.completed ?? false,
+      })),
+    );
+    await tx.update(workouts).set({ updatedAt: new Date() }).where(eq(workouts.id, workoutId));
+  });
+  const workout = await getWorkout(workoutId);
+  if (!workout) throw new HttpError("Workout not found", 404);
+  return workout;
+}
+
+export async function muscleCoverage(date = todayDateString()) {
+  const range = zonedWeekRange(date);
+  const sessions = await listWorkoutsInRange(range.from, range.to);
+  const groups = sessions
+    .filter((workout) => workout.status === "done")
+    .flatMap((workout) =>
+      workout.exercises.flatMap((exercise) => {
+        const match = resolveExercise(exercise.libraryId, exercise.name);
+        return match ? [{ primary: match.primary, secondary: match.secondary }] : [];
+      }),
+    );
+  const hit = combineMuscles(groups);
+  return {
+    startDate: range.startDate,
+    endDate: addCalendarDays(range.startDate, 6),
+    primary: hit.primary,
+    secondary: hit.secondary,
+    neglected: MUSCLE_IDS.filter((id) => !hit.primary.includes(id) && !hit.secondary.includes(id)),
+  };
+}
+
+export function workoutMuscleMap(workout: WorkoutDto) {
+  return combineMuscles(
+    workout.exercises.flatMap((exercise) => {
+      const match = resolveExercise(exercise.libraryId, exercise.name);
+      return match ? [{ primary: match.primary, secondary: match.secondary }] : [];
+    }),
+  );
 }
 
 export async function deleteWorkout(id: string) {

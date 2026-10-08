@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api } from "@/lib/client";
 import { formatDuration, formatTime, formatWeight, formatLongDate, eventDay } from "@/lib/format";
 import type { WorkoutDto } from "@/lib/types";
+import { BodyMap } from "./body-map";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, PageTitle } from "./ui";
@@ -62,10 +63,13 @@ export function WorkoutDetail({ id }: { id: string }) {
           <p className="sub">
             {data.scheduledAt ? `${formatLongDate(eventDay(data.scheduledAt))} · ${formatTime(data.scheduledAt)}` : "Unscheduled"}
           </p>
+          <BodyMap primary={data.muscles.primary} secondary={data.muscles.secondary} label={`${data.title} muscles`} />
           <div className="stack" style={{ marginTop: 16 }}>
             {data.exercises.map((exercise) => (
               <section key={exercise.id} className="card">
-                <strong>{exercise.name}</strong>
+                {exercise.catalogId ? (
+                  <Link href={`/exercises/${encodeURIComponent(exercise.catalogId)}`}><strong>{exercise.name}</strong></Link>
+                ) : <strong>{exercise.name}</strong>}
                 <div className="stack" style={{ marginTop: 8 }}>
                   {exercise.sets.map((set, index) => (
                     <button key={set.id} type="button" className={`check ${set.completed ? "on" : ""}`} onClick={() => void toggle(set.id, !set.completed)}>
@@ -84,6 +88,7 @@ export function WorkoutDetail({ id }: { id: string }) {
             ))}
           </div>
           {data.notes ? <p className="muted">{data.notes}</p> : null}
+          <Link href={`/exercises?addTo=${data.id}`} className="btn-ghost" style={{ display: "block", textAlign: "center", marginTop: 16 }}>Add from library</Link>
           <div className="stack" style={{ marginTop: 16 }}>
             {data.status !== "done" ? <button className="btn" type="button" disabled={busy} onClick={() => void setStatus("done")}>Mark done</button> : null}
             {data.status === "done" ? <button className="btn-ghost" type="button" disabled={busy} onClick={() => void setStatus("planned")}>Mark as not done</button> : null}

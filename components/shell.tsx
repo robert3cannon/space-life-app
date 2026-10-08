@@ -14,6 +14,7 @@ const tabs = [
 function isOn(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   if (href === "/more") return ["/more", "/reminders", "/activity", "/settings"].some((path) => pathname.startsWith(path));
+  if (href === "/workouts") return pathname.startsWith("/workouts") || pathname.startsWith("/exercises");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

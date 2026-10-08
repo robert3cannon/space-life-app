@@ -51,6 +51,8 @@ export function serializeExercise(
   return {
     id: row.id,
     name: row.name,
+    libraryId: row.libraryId,
+    catalogId: null,
     position: row.position,
     notes: row.notes,
     sets,
@@ -70,6 +72,7 @@ export function serializeWorkout(
     notes: row.notes,
     reminderMinutesBefore: row.reminderMinutesBefore,
     exercises,
+    muscles: { primary: [], secondary: [] },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

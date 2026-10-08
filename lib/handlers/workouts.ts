@@ -2,10 +2,10 @@ import { json, readJson } from "../api";
 import { TIMEZONE } from "../constants";
 import { routeId } from "../ids";
 import { parseRange } from "../query";
-import { createWorkout, deleteWorkout, getWorkout, listWorkoutsInRange, updateWorkout, workoutBoard } from "../services/workouts";
+import { appendWorkoutExercise, createWorkout, deleteWorkout, getWorkout, listWorkoutsInRange, muscleCoverage, updateWorkout, workoutBoard } from "../services/workouts";
 import { todayDateString } from "../time";
 import { HttpError } from "../errors";
-import { workoutCreateSchema, workoutPatchSchema } from "../validation";
+import { exerciseAppendSchema, workoutCreateSchema, workoutPatchSchema } from "../validation";
 
 export async function getWorkouts(req: Request) {
   const url = new URL(req.url);
@@ -42,4 +42,15 @@ export async function patchWorkout(req: Request, ctx: { params: Promise<{ id: st
 
 export async function removeWorkout(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   return json(await deleteWorkout(await routeId(ctx)));
+}
+
+export async function getCoverage(req: Request) {
+  const date = new URL(req.url).searchParams.get("date") || undefined;
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError("date must be YYYY-MM-DD", 400);
+  return json(await muscleCoverage(date));
+}
+
+export async function postWorkoutExercise(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const input = exerciseAppendSchema.parse(await readJson(req));
+  return json(await appendWorkoutExercise(await routeId(ctx), input), 201);
 }

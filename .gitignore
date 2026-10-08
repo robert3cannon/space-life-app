@@ -10,7 +10,7 @@ dist
 *.log
 .DS_Store
 tsconfig.tsbuildinfo
-coverage
+/coverage
 playwright-report
 test-results
 /tmp
