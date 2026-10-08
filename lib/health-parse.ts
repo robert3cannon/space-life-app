@@ -214,7 +214,7 @@ function parseInstant(input: unknown): { date: Date; dateOnly: boolean } | null 
     return { date: new Date(ms), dateOnly: false };
   }
   if (typeof input !== "string") return null;
-  let text = cleanText(input).replace(/\s+(ET|EST|EDT)$/i, "");
+  const text = cleanText(input).replace(/\s+(ET|EST|EDT)$/i, "");
   if (!text) return null;
 
   if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {

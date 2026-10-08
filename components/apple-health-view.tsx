@@ -132,7 +132,7 @@ export function AppleHealthView() {
       <PageTitle title="Apple Health" />
       <p className="kicker">Settings</p>
       <h1 className="display">Apple Health</h1>
-      <p className="sub">A website cannot read HealthKit. Shortcuts on your iPhone can. Orbit accepts a daily batch and can hand today's food and water back.</p>
+      <p className="sub">A website cannot read HealthKit. Shortcuts on your iPhone can. Orbit accepts a daily batch and can hand food and water logged today back.</p>
       <Link href="/settings" className="text-btn">All settings</Link>
 
       {status.loading && !data ? <Loading /> : null}
@@ -142,7 +142,7 @@ export function AppleHealthView() {
         <>
           <section className="card" style={{ marginTop: 16 }}>
             <h2 style={{ marginTop: 0 }}>Sync token</h2>
-            <p className="muted">Paste this into the shortcut's Authorization header, after the word Bearer and a space. Regenerate if you shared it. Revoke to turn the phone token off. A token set on the server as HEALTH_SYNC_TOKEN keeps working either way.</p>
+            <p className="muted">Paste this into the Authorization header in the shortcut, after the word Bearer and a space. Regenerate if you shared it. Revoke to turn the phone token off. A token set on the server as HEALTH_SYNC_TOKEN keeps working either way.</p>
             {data.envTokenConfigured ? <p className="faint">A server token is also accepted.</p> : null}
             {data.token ? (
               <>
@@ -283,20 +283,20 @@ export function AppleHealthView() {
 
       <section className="card" style={{ marginTop: 12 }}>
         <h2 style={{ marginTop: 0 }}>Export shortcut</h2>
-        <p className="muted">This reads today's Orbit meals and water, writes them with Log Health Sample, then tells Orbit which ids were written.</p>
+        <p className="muted">This reads meals and water logged in Orbit today, writes them with Log Health Sample, then tells Orbit which ids were written.</p>
         <ol className="steps">
           <li>Create a shortcut named Orbit Health Export.</li>
           <li>Add <strong>Get Contents of URL</strong>. URL: the export address. Method: GET. Header <strong>Authorization</strong> with the same Bearer text.</li>
           <li>Add <strong>Get Dictionary Value</strong>. Key: <strong>food</strong>. Dictionary: the Contents of URL.</li>
           <li>
-            Add <strong>Repeat with Each</strong>. Inside, add four <strong>Log Health Sample</strong> actions. Date for each is the Repeat Item's loggedAt, via <strong>Get Dictionary Value</strong>:
+            Add <strong>Repeat with Each</strong>. Inside, add four <strong>Log Health Sample</strong> actions. Date for each is loggedAt on the Repeat Item, via <strong>Get Dictionary Value</strong>:
             <ul className="steps">
               <li>Dietary Energy, value calories, unit kcal</li>
               <li>Dietary Protein, value proteinG, unit g</li>
               <li>Dietary Carbohydrates, value carbsG, unit g</li>
               <li>Total Fat, value fatG, unit g</li>
             </ul>
-            Then <strong>Add to Variable</strong> named WrittenFood, value the Repeat Item's id. Add the id only after the four samples succeed.
+            Then <strong>Add to Variable</strong> named WrittenFood, value the id on the Repeat Item. Add the id only after the four samples succeed.
           </li>
           <li>Add <strong>Get Dictionary Value</strong>. Key: <strong>water</strong>. Use the original Contents of URL, not the repeat item.</li>
           <li>Add <strong>Repeat with Each</strong>. <strong>Log Health Sample</strong>, type Dietary Water, value ounces, unit fl oz, date loggedAt. Then <strong>Add to Variable</strong> named WrittenWater with the id.</li>
