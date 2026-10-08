@@ -239,6 +239,83 @@ describe("food search", () => {
     assert.match(orange.note ?? "", /Plate: 1 side \+ 2 entrees/);
   });
 
+  it("returns curated McDonald's items from the US nutrition calculator", () => {
+    const mcdonalds = RESTAURANT_CHAINS.find((chain) => chain.id === "mcdonalds");
+    assert.ok(mcdonalds);
+    assert.equal(mcdonalds.sourceUrl, "https://www.mcdonalds.com/us/en-us/about-our-food/nutrition-calculator.html");
+    assert.equal(mcdonalds.verifiedOn, "2026-10-08");
+    const catalog = searchRestaurantFoods("mcdonalds");
+    assert.equal(catalog.length, mcdonalds.items.length);
+    assert.ok(catalog.every((hit) => hit.brand === "McDonald's" && restaurantServingMatchesLabel(hit)));
+
+    const cheese = searchRestaurantFoods("cheeseburger");
+    assert.equal(cheese[0].name, "Cheeseburger");
+    assert.equal(cheese[0].calories, 300);
+    assert.equal(cheese[0].fatG, 13);
+    assert.equal(cheese[0].carbsG, 31);
+    assert.equal(cheese[0].proteinG, 15);
+    assert.equal(cheese[0].servings[0].grams, 112);
+    const double = cheese.find((hit) => hit.name === "Double Cheeseburger");
+    assert.ok(double);
+    assert.equal(double.calories, 440);
+    assert.equal(double.fatG, 24);
+    assert.equal(double.carbsG, 34);
+    assert.equal(double.proteinG, 25);
+    assert.equal(double.servings[0].grams, 165);
+
+    const bigMac = searchRestaurantFoods("big mac")[0];
+    assert.equal(bigMac.name, "Big Mac");
+    assert.equal(bigMac.calories, 580);
+    assert.equal(bigMac.fatG, 34);
+    assert.equal(bigMac.carbsG, 45);
+    assert.equal(bigMac.proteinG, 25);
+    assert.equal(bigMac.servings[0].grams, 217);
+
+    const quarter = searchRestaurantFoods("quarter pounder with cheese")[0];
+    assert.equal(quarter.calories, 520);
+    assert.equal(quarter.fatG, 26);
+    assert.equal(quarter.carbsG, 42);
+    assert.equal(quarter.proteinG, 30);
+
+    const mcchicken = searchRestaurantFoods("mcchicken")[0];
+    assert.equal(mcchicken.calories, 390);
+    assert.equal(mcchicken.proteinG, 14);
+
+    const nuggets = searchRestaurantFoods("chicken mcnuggets");
+    assert.deepEqual(nuggets.map((hit) => hit.calories), [170, 250, 410]);
+    assert.equal(searchRestaurantFoods("10 piece chicken mcnuggets")[0].name, "Chicken McNuggets (10 pc)");
+
+    const filet = searchRestaurantFoods("filet o fish")[0];
+    assert.equal(filet.calories, 380);
+    assert.equal(filet.proteinG, 16);
+
+    assert.equal(searchRestaurantFoods("large fries")[0].calories, 480);
+    assert.equal(searchRestaurantFoods("medium fry")[0].calories, 320);
+    assert.equal(searchRestaurantFoods("small fries")[0].calories, 230);
+    assert.equal(searchRestaurantFoods("small fries")[0].servings[0].grams, 78);
+
+    const smoothies = searchRestaurantFoods("strawberry banana smoothie");
+    assert.deepEqual(smoothies.map((hit) => [hit.calories, hit.fatG, hit.carbsG, hit.proteinG]), [
+      [190, 0.5, 44, 2],
+      [240, 1, 55, 3],
+      [330, 1, 76, 4],
+    ]);
+
+    const egg = searchRestaurantFoods("egg mcmuffin")[0];
+    assert.equal(egg.calories, 310);
+    assert.equal(egg.fatG, 13);
+    assert.equal(egg.carbsG, 30);
+    assert.equal(egg.proteinG, 17);
+    assert.equal(egg.servings[0].grams, 138);
+
+    const hash = searchRestaurantFoods("hash browns")[0];
+    assert.equal(hash.calories, 140);
+    assert.equal(hash.fatG, 8);
+    assert.equal(hash.carbsG, 18);
+    assert.equal(hash.proteinG, 2);
+    assert.equal(hash.servings[0].grams, 58);
+  });
+
   it("looks up a barcode from Open Food Facts and remembers a miss", async () => {
     setFoodCatalogFetch(async (input) => {
       const url = String(input);

@@ -16,6 +16,17 @@ import { scaleFood, type FoodHit, type FoodNutrients, type FoodServing } from ".
  * Grams are Math.round(ounces * 28.3495). 5.44 oz is 154 g.
  * Bowl, plate, and bigger plate copy is from https://www.pandaexpress.com/
  * (Bowl is 1 side and 1 entree, Plate is 1 side and 2 entrees, Bigger Plate is 1 side and 3).
+ *
+ * McDonald's numbers are the US nutrition calculator item facts
+ * (https://www.mcdonalds.com/us/en-us/about-our-food/nutrition-calculator.html,
+ * item details at /dnaapp/itemDetails). Verified on 2026-10-08.
+ * Stored calories, fat, carbs, and protein are the displayed nutrient facts.
+ * A few item descriptions still quote older calories (Double Cheeseburger 450,
+ * McChicken 400, Egg McMuffin 300, small fries 220, large fries 490). Those
+ * sentences are not what the calculator shows, so they are not stored.
+ * Grams are Math.round of the default component quantities. Each component
+ * serving basis is 100 g. Fries do not include the ketchup packet: the packet
+ * is listed on the item, and the fry nutrition facts match the potato component alone.
  */
 
 export type RestaurantServing = {
@@ -56,6 +67,27 @@ function serving(
   detail?: string,
 ): RestaurantServing {
   const grams = Math.round(ounces * 28.3495);
+  const size = `${ounces.toFixed(2)} oz (${grams} g)`;
+  return {
+    label: detail ? `${detail} · ${size}` : size,
+    ounces,
+    grams,
+    calories,
+    fatG,
+    carbsG,
+    proteinG,
+  };
+}
+
+function servingFromGrams(
+  grams: number,
+  calories: number,
+  fatG: number,
+  carbsG: number,
+  proteinG: number,
+  detail?: string,
+): RestaurantServing {
+  const ounces = grams / 28.3495;
   const size = `${ounces.toFixed(2)} oz (${grams} g)`;
   return {
     label: detail ? `${detail} · ${size}` : size,
@@ -177,6 +209,123 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
       },
     ],
   },
+  {
+    id: "mcdonalds",
+    name: "McDonald's",
+    sourceUrl: "https://www.mcdonalds.com/us/en-us/about-our-food/nutrition-calculator.html",
+    verifiedOn: "2026-10-08",
+    chainTokens: ["mcdonalds", "mcdonald", "mcdonald's", "mcd"],
+    items: [
+      {
+        id: "cheeseburger",
+        name: "Cheeseburger",
+        aliases: ["cheese burger"],
+        servings: [servingFromGrams(112, 300, 13, 31, 15)],
+      },
+      {
+        id: "double-cheeseburger",
+        name: "Double Cheeseburger",
+        aliases: ["double cheese burger"],
+        servings: [servingFromGrams(165, 440, 24, 34, 25)],
+      },
+      {
+        id: "mcdouble",
+        name: "McDouble",
+        aliases: ["mc double"],
+        servings: [servingFromGrams(150, 390, 20, 32, 22)],
+      },
+      {
+        id: "big-mac",
+        name: "Big Mac",
+        aliases: ["bigmac"],
+        servings: [servingFromGrams(217, 580, 34, 45, 25)],
+      },
+      {
+        id: "quarter-pounder-with-cheese",
+        name: "Quarter Pounder with Cheese",
+        aliases: ["quarter pounder", "qpc"],
+        servings: [servingFromGrams(201, 520, 26, 42, 30)],
+      },
+      {
+        id: "mcchicken",
+        name: "McChicken",
+        aliases: ["mc chicken"],
+        servings: [servingFromGrams(139, 390, 21, 38, 14)],
+      },
+      {
+        id: "chicken-mcnuggets-4",
+        name: "Chicken McNuggets (4 pc)",
+        aliases: ["4 piece chicken mcnuggets", "4 pc nuggets", "mcnuggets", "nuggets", "chicken nuggets"],
+        servings: [servingFromGrams(61, 170, 10, 10, 9, "4 pc")],
+      },
+      {
+        id: "chicken-mcnuggets-6",
+        name: "Chicken McNuggets (6 pc)",
+        aliases: ["6 piece chicken mcnuggets", "6 pc nuggets", "mcnuggets", "nuggets", "chicken nuggets"],
+        servings: [servingFromGrams(92, 250, 15, 15, 14, "6 pc")],
+      },
+      {
+        id: "chicken-mcnuggets-10",
+        name: "Chicken McNuggets (10 pc)",
+        aliases: ["10 piece chicken mcnuggets", "10 pc nuggets", "mcnuggets", "nuggets", "chicken nuggets"],
+        servings: [servingFromGrams(153, 410, 24, 26, 23, "10 pc")],
+      },
+      {
+        id: "filet-o-fish",
+        name: "Filet-O-Fish",
+        aliases: ["filet o fish", "fish fillet"],
+        servings: [servingFromGrams(140, 380, 19, 38, 16)],
+      },
+      {
+        id: "fries-small",
+        name: "World Famous Fries (Small)",
+        aliases: ["small fries", "small french fries", "small fry", "fries", "fry", "french fries"],
+        servings: [servingFromGrams(78, 230, 11, 31, 3, "Small")],
+      },
+      {
+        id: "fries-medium",
+        name: "World Famous Fries (Medium)",
+        aliases: ["medium fries", "medium french fries", "medium fry", "fries", "fry", "french fries"],
+        servings: [servingFromGrams(109, 320, 15, 43, 5, "Medium")],
+      },
+      {
+        id: "fries-large",
+        name: "World Famous Fries (Large)",
+        aliases: ["large fries", "large french fries", "large fry", "fries", "fry", "french fries"],
+        servings: [servingFromGrams(166, 480, 23, 65, 7, "Large")],
+      },
+      {
+        id: "strawberry-banana-smoothie-small",
+        name: "Strawberry Banana Smoothie (Small)",
+        aliases: ["small strawberry banana smoothie", "small smoothie", "smoothie"],
+        servings: [servingFromGrams(316, 190, 0.5, 44, 2, "Small")],
+      },
+      {
+        id: "strawberry-banana-smoothie-medium",
+        name: "Strawberry Banana Smoothie (Medium)",
+        aliases: ["medium strawberry banana smoothie", "medium smoothie", "smoothie"],
+        servings: [servingFromGrams(396, 240, 1, 55, 3, "Medium")],
+      },
+      {
+        id: "strawberry-banana-smoothie-large",
+        name: "Strawberry Banana Smoothie (Large)",
+        aliases: ["large strawberry banana smoothie", "large smoothie", "smoothie"],
+        servings: [servingFromGrams(541, 330, 1, 76, 4, "Large")],
+      },
+      {
+        id: "egg-mcmuffin",
+        name: "Egg McMuffin",
+        aliases: ["egg mcmuffin sandwich"],
+        servings: [servingFromGrams(138, 310, 13, 30, 17)],
+      },
+      {
+        id: "hash-browns",
+        name: "Hash Browns",
+        aliases: ["hash brown", "hashbrown"],
+        servings: [servingFromGrams(58, 140, 8, 18, 2)],
+      },
+    ],
+  },
 ];
 
 function per100g(serving: RestaurantServing): FoodNutrients {
@@ -227,7 +376,13 @@ function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
   const wanted = foodWords(query, chain);
   const hay = haystack(chain, item);
   if (!wanted.length) return words(query).some((word) => chain.chainTokens.includes(word));
-  return wanted.every((word) => hay.includes(word));
+  if (!wanted.every((word) => hay.includes(word))) return false;
+  if (wanted.length > 1) return true;
+  const word = wanted[0];
+  const labels = [item.name, ...(item.aliases ?? [])];
+  if (labels.some((value) => words(value).length === 1 && words(value)[0] === word)) return true;
+  const namesAnotherItem = chain.items.some((other) => words(other.name).length === 1 && words(other.name)[0] === word);
+  return namesAnotherItem && words(item.name).includes(word);
 }
 
 function score(chain: RestaurantChain, item: RestaurantItem, query: string) {
