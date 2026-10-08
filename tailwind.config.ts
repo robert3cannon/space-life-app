@@ -6,7 +6,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["Outfit", "ui-sans-serif", "system-ui", "sans-serif"],
-        display: ["Syne", "Outfit", "sans-serif"],
+        display: ["Orbitron", "Outfit", "sans-serif"],
       },
     },
   },

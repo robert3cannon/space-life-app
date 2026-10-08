@@ -1,5 +1,5 @@
-@import "@fontsource/syne/700.css";
-@import "@fontsource/syne/800.css";
+@import "@fontsource/orbitron/latin-600.css";
+@import "@fontsource/orbitron/latin-700.css";
 @import "@fontsource/outfit/400.css";
 @import "@fontsource/outfit/500.css";
 @import "@fontsource/outfit/600.css";
@@ -76,6 +76,46 @@ img { max-width: 100%; }
 }
 @keyframes drift { from { transform: translateY(0); } to { transform: translateY(-80px); } }
 
+.planets {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100%, 480px);
+  transform: translateX(-50%);
+}
+.planet {
+  position: absolute;
+  height: auto;
+  overflow: visible;
+}
+.planet-ring {
+  top: 28px;
+  right: 8px;
+  width: 108px;
+  animation: float-y 16s ease-in-out infinite;
+}
+.planet-moon {
+  top: 112px;
+  right: 10px;
+  width: 22px;
+  animation: float-y 12s ease-in-out infinite reverse;
+}
+.planet-giant {
+  top: auto;
+  bottom: 96px;
+  left: -132px;
+  width: 190px;
+  animation: float-y 22s ease-in-out infinite;
+}
+@keyframes float-y {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stars, .planet { animation: none; }
+}
+
 .page {
   position: relative;
   z-index: 1;
@@ -103,8 +143,22 @@ img { max-width: 100%; }
   font-size: 11px;
   font-weight: 600;
 }
-h1, h2, .display { font-family: Syne, Outfit, sans-serif; letter-spacing: -0.04em; }
-.display { font-size: 34px; line-height: 1.02; margin: 6px 0 0; font-weight: 800; }
+h1, h2, .display {
+  font-family: Orbitron, Outfit, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.display {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 8px 0 0;
+  font-weight: 700;
+}
+.page .display {
+  font-size: 26px;
+  padding-right: 118px;
+}
+.page .sub { padding-right: 40px; }
 .sub { color: var(--muted); margin: 6px 0 0; font-size: 14px; }
 .section-title {
   display: flex;
@@ -113,7 +167,7 @@ h1, h2, .display { font-family: Syne, Outfit, sans-serif; letter-spacing: -0.04e
   gap: 12px;
   margin: 22px 0 10px;
 }
-.section-title h2 { margin: 0; font-size: 18px; }
+.section-title h2 { margin: 0; font-size: 15px; letter-spacing: 0.06em; }
 .section-title a, .text-btn {
   color: var(--cyan);
   background: none;
@@ -138,7 +192,7 @@ h1, h2, .display { font-family: Syne, Outfit, sans-serif; letter-spacing: -0.04e
     radial-gradient(90% 80% at 0% 100%, rgba(255, 138, 212, 0.14), transparent 42%),
     linear-gradient(180deg, rgba(36, 28, 84, 0.9), rgba(12, 10, 32, 0.88));
 }
-.hero h2 { margin: 8px 0 0; font-size: 28px; line-height: 1.05; }
+.hero h2 { margin: 8px 0 0; font-size: 22px; line-height: 1.25; letter-spacing: 0.02em; }
 .hero p { margin: 8px 0 0; color: #ddd6ff; }
 
 .stack { display: flex; flex-direction: column; gap: 10px; }
