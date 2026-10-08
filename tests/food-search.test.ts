@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { GET as botBarcode } from "../app/api/bot/food/barcode/route";
 import { GET as botSearch } from "../app/api/bot/food/search/route";
 import { closeDb, getSql } from "../lib/db";
+import { RESTAURANT_CHAINS, restaurantServingMatchesLabel, searchRestaurantFoods } from "../data/restaurant-foods";
 import { scaleFood, usdaToHit, type FoodHit, type UsdaSearchFood } from "../lib/food-catalog";
 import { lookupBarcode, searchFoods, setFoodCatalogFetch } from "../lib/services/food-catalog";
 import { migrate } from "../scripts/migrate";
@@ -116,6 +117,126 @@ describe("food search", () => {
       ctx,
     );
     assert.equal(bad.status, 400);
+  });
+
+  it("returns curated Panda Express items ahead of USDA and Open Food Facts", async () => {
+    const panda = RESTAURANT_CHAINS.find((chain) => chain.id === "panda-express");
+    assert.ok(panda);
+    assert.equal(panda.sourceUrl, "https://www.pandaexpress.com/nutritioninformation");
+    assert.equal(panda.verifiedOn, "2026-10-08");
+    const catalog = searchRestaurantFoods("panda express");
+    assert.equal(catalog.length, panda.items.length);
+    assert.ok(catalog.every((hit) => hit.source === "restaurant" && hit.brand === "Panda Express" && restaurantServingMatchesLabel(hit)));
+    assert.equal(catalog.some((hit) => /angus/i.test(hit.name)), false);
+
+    setFoodCatalogFetch(async (input) => {
+      const url = String(input);
+      if (url.includes("openfoodfacts.org/cgi/search.pl")) {
+        return jsonResponse({
+          products: [
+            {
+              code: "999111222",
+              product_name: "Panda broccoli beef bowl",
+              brands: "Open Food Facts",
+              serving_size: "159 g",
+              nutriments: { "energy-kcal_100g": 184, proteins_100g: 8, carbohydrates_100g: 16, fat_100g: 10 },
+            },
+          ],
+        });
+      }
+      if (url.includes("nal.usda.gov")) {
+        return jsonResponse({
+          foods: [
+            {
+              fdcId: 42,
+              description: "Beef, broccoli, restaurant",
+              dataType: "Survey (FNDDS)",
+              foodNutrients: [
+                { nutrientId: 1008, value: 151 },
+                { nutrientId: 1003, value: 9 },
+                { nutrientId: 1005, value: 8 },
+                { nutrientId: 1004, value: 9 },
+              ],
+              foodMeasures: [{ disseminationText: "1 cup", gramWeight: 170, rank: 1 }],
+            },
+          ],
+        });
+      }
+      return jsonResponse({ foods: [] });
+    });
+
+    async function search(q: string) {
+      const response = await botSearch(
+        new Request(`http://localhost/api/bot/food/search?q=${encodeURIComponent(q)}`, {
+          headers: { authorization: "Bearer test-bot-token-value" },
+        }),
+        ctx,
+      );
+      assert.equal(response.status, 200);
+      return (await response.json()) as { foods: FoodHit[] };
+    }
+
+    const named = await search("panda express broccoli beef");
+    assert.equal(named.foods[0].id, "restaurant:panda-express:broccoli-beef");
+    assert.equal(named.foods[0].source, "restaurant");
+    assert.equal(named.foods[0].brand, "Panda Express");
+    assert.ok(named.foods.some((food) => food.source === "openfoodfacts"));
+
+    const broccoli = await search("broccoli beef");
+    assert.equal(broccoli.foods[0].name, "Broccoli Beef");
+    assert.equal(broccoli.foods[0].calories, 150);
+    assert.equal(broccoli.foods[0].fatG, 6);
+    assert.equal(broccoli.foods[0].carbsG, 12);
+    assert.equal(broccoli.foods[0].proteinG, 15);
+    assert.equal(broccoli.foods[0].servings[0].grams, 154);
+    assert.match(broccoli.foods[0].servings[0].label, /5\.44 oz/);
+    const cub = broccoli.foods.find((food) => food.name === "Broccoli Beef Cub Meal");
+    assert.ok(cub);
+    assert.equal(cub.calories, 110);
+    assert.equal(cub.fatG, 5);
+    assert.equal(cub.carbsG, 9);
+    assert.equal(cub.proteinG, 11);
+    assert.equal(cub.servings[0].grams, 116);
+    assert.ok(broccoli.foods.findIndex((food) => food.source !== "restaurant") > broccoli.foods.findIndex((food) => food.id === "restaurant:panda-express:broccoli-beef-cub-meal"));
+
+    const beijing = await search("beijing beef");
+    assert.equal(beijing.foods[0].name, "Beijing Beef");
+    assert.equal(beijing.foods[0].calories, 470);
+    assert.equal(beijing.foods[0].fatG, 27);
+    assert.equal(beijing.foods[0].carbsG, 46);
+    assert.equal(beijing.foods[0].proteinG, 14);
+    assert.equal(beijing.foods[0].servings[0].grams, 159);
+
+    const orange = catalog.find((hit) => hit.name === "Orange Chicken");
+    const chow = catalog.find((hit) => hit.name === "Chow Mein");
+    const rice = catalog.find((hit) => hit.name === "Fried Rice");
+    const white = catalog.find((hit) => hit.name === "White Steamed Rice");
+    const greens = catalog.find((hit) => hit.name === "Super Greens");
+    const kung = catalog.find((hit) => hit.name === "Kung Pao Chicken");
+    const beans = catalog.find((hit) => hit.name === "String Bean Chicken Breast");
+    const teriyaki = catalog.find((hit) => hit.name === "Grilled Teriyaki Chicken");
+    const shrimp = catalog.find((hit) => hit.name === "Honey Walnut Shrimp");
+    const steak = catalog.find((hit) => hit.name === "Black Pepper Sirloin Steak");
+    const mushroom = catalog.find((hit) => hit.name === "Mushroom Chicken");
+    const sesame = catalog.find((hit) => hit.name === "Honey Sesame Chicken Breast");
+    const roll = catalog.find((hit) => hit.name === "Chicken Egg Roll");
+    const rangoon = catalog.find((hit) => hit.name === "Cream Cheese Rangoon");
+    assert.ok(orange && chow && rice && white && greens && kung && beans && teriyaki && shrimp && steak && mushroom && sesame && roll && rangoon);
+    assert.equal(orange.calories, 510);
+    assert.equal(chow.calories, 600);
+    assert.equal(rice.calories, 620);
+    assert.equal(white.calories, 520);
+    assert.equal(greens.calories, 130);
+    assert.equal(kung.calories, 320);
+    assert.equal(beans.calories, 210);
+    assert.equal(teriyaki.calories, 275);
+    assert.equal(shrimp.calories, 430);
+    assert.equal(steak.calories, 180);
+    assert.equal(mushroom.calories, 220);
+    assert.equal(sesame.calories, 340);
+    assert.equal(roll.calories, 200);
+    assert.equal(rangoon.calories, 190);
+    assert.match(orange.note ?? "", /Plate: 1 side \+ 2 entrees/);
   });
 
   it("looks up a barcode from Open Food Facts and remembers a miss", async () => {

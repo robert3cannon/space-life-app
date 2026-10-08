@@ -357,8 +357,12 @@ export function FoodView() {
                   <button key={hit.id} className="event" type="button" onClick={() => applyHit(hit, 0, "1")}>
                     <time className="num">{hit.calories}</time>
                     <div>
-                      <strong>{foodHitLabel(hit)}</strong>
-                      <span>{hit.source === "usda" ? "USDA" : "Open Food Facts"} · {hit.servings[0]?.label}</span>
+                      <strong>
+                        {foodHitLabel(hit)}
+                        {hit.source === "restaurant" ? <em className="pill" data-type="meal">Restaurant</em> : null}
+                      </strong>
+                      <span>{hit.source === "usda" ? "USDA" : hit.source === "restaurant" ? "Restaurant" : "Open Food Facts"} · {hit.servings[0]?.label}</span>
+                      {hit.note ? <span className="food-note">{hit.note}</span> : null}
                     </div>
                   </button>
                 ))}

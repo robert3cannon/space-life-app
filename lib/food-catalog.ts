@@ -12,7 +12,7 @@ export type FoodServing = {
 
 export type FoodHit = {
   id: string;
-  source: "usda" | "openfoodfacts";
+  source: "usda" | "openfoodfacts" | "restaurant";
   name: string;
   brand: string | null;
   per100g: FoodNutrients;
@@ -22,6 +22,7 @@ export type FoodHit = {
   carbsG: number;
   fatG: number;
   generic?: boolean;
+  note?: string;
 };
 
 export type UsdaSearchFood = {

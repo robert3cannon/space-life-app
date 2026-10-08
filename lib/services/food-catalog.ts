@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { searchRestaurantFoods } from "../../data/restaurant-foods";
 import { getDb } from "../db";
 import { foodCache } from "../db/schema";
 import { HttpError } from "../errors";
@@ -138,20 +139,22 @@ export async function searchFoods(query: string, limit = 8): Promise<FoodHit[]> 
   const q = query.trim().replace(/\s+/g, " ");
   if (q.length < 2 || q.length > 80) throw new HttpError("Enter at least 2 characters", 400);
   const safeLimit = Math.min(15, Math.max(1, limit));
-  const key = `search:v4:${q.toLowerCase()}`;
+  const key = `search:v5:${q.toLowerCase()}`;
   const cached = await readCache<FoodHit[]>(key);
   if (cached.hit) return cached.value.slice(0, safeLimit);
 
+  const curated = searchRestaurantFoods(q);
   let usdaFailed = false;
   const usda = await searchUsda(q).catch(() => {
     usdaFailed = true;
     return { foods: [] as FoodHit[], partial: true };
   });
   const off = await searchOff(q).catch(() => [] as FoodHit[]);
-  if (usdaFailed && usda.foods.length === 0 && off.length === 0) {
+  if (curated.length === 0 && usdaFailed && usda.foods.length === 0 && off.length === 0) {
     throw new HttpError("Food search is unavailable right now", 503);
   }
-  const foods = mergeHits(q, [usda.foods, off]).slice(0, 15);
+  const curatedLabels = new Set(curated.map((hit) => foodHitLabel(hit).toLowerCase()));
+  const foods = [...curated, ...mergeHits(q, [usda.foods, off]).filter((hit) => !curatedLabels.has(foodHitLabel(hit).toLowerCase()))].slice(0, 15);
   const partial = usdaFailed || usda.partial;
   await writeCache(key, foods, foods.length && !partial ? SEARCH_TTL_MS : EMPTY_TTL_MS);
   return foods.slice(0, safeLimit);

@@ -132,7 +132,7 @@ The manifest uses `display: standalone`, a dark theme color (`#060514`), and spl
 
 - **Today.** Greeting, the current or next block, today's schedule, calories and macros against targets, water and last night's sleep, habits due today, steps and active calories when Apple Health has synced, today's workout (or the next one), pending reminders, and the latest bot notes.
 - **Schedule.** Day and week views. Create, edit, and delete blocks of type class, work, study, workout, meal, or other. Optional reminder before the start.
-- **Food.** Log meals with calories and protein, carbs, and fat. Search USDA FoodData Central and Open Food Facts by name, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
+- **Food.** Log meals with calories and protein, carbs, and fat. Search curated restaurant menus first, then USDA FoodData Central and Open Food Facts, scale a serving, or scan a package barcode with the iPhone camera. Daily totals, a weekly chart, editable targets, manual entry, and one-tap re-log of recent foods.
 - **Train.** Plan exercises with sets (reps and weight in pounds, or a duration). Check sets off, mark the session done, and scroll history. The exercise library (100+ movements) shows the muscles each one trains, a front and back body map, and a two-frame form demo. Tap a muscle to list what hits it. A session and the current week each roll those muscles up so you can see what you trained and what you skipped.
 - **Water and sleep.** Water has a daily ounce goal (default 100, editable) and quick adds of 8, 16, or 24 oz, plus a custom amount. Sleep is logged as bedtime and wake time, or as a duration, with an optional 1–5 quality. A bedtime after midnight still belongs to the morning you woke up, which is the usual case when wake time is around 11:00 AM. Both have a weekly chart.
 - **Habits.** Daily habits, or specific weekdays. Check them off on Today. Current and best streaks skip an unfinished today and skip days that are not scheduled. Protein, water, a finished workout, and 10,000 Apple Health steps can fill a habit in. Each habit has a month calendar. An optional evening reminder covers the ones still open.
@@ -339,12 +339,12 @@ curl -sS -X DELETE -H "Authorization: Bearer $BOT_API_TOKEN" \
 | GET, PATCH, DELETE | `/api/bot/food/:id` | One entry |
 | GET | `/api/bot/food/recent` | Last distinct foods, for quick re-log |
 | GET | `/api/bot/food/summary?date=YYYY-MM-DD` | The Monday–Sunday week containing that day |
-| GET | `/api/bot/food/search?q=` | Search USDA and Open Food Facts. `limit` is 1–15, default 8 |
+| GET | `/api/bot/food/search?q=` | Search curated restaurant menus, then USDA and Open Food Facts. `limit` is 1–15, default 8 |
 | GET | `/api/bot/food/barcode?code=` | One packaged food by UPC/EAN |
 
 `meal` is `breakfast`, `lunch`, `dinner`, or `snack`. Re-log by POSTing the same name and macros again (or copy a row from `/recent`).
 
-Search results include `per100g`, `servings` (`label` and `grams`), and calories/macros for the first serving at quantity 1. Log that serving with `POST /api/bot/food`, or scale from `per100g`: nutrients × grams × quantity / 100. Sources are `usda` (generic and branded, including restaurant items when USDA has them) and `openfoodfacts`. Results are cached. Barcode lookup tries Open Food Facts, then USDA branded foods. A miss is `{ "error": "No food found for that barcode" }` with status 404.
+Search results include `per100g`, `servings` (`label` and `grams`), and calories/macros for the first serving at quantity 1. Log that serving with `POST /api/bot/food`, or scale from `per100g`: nutrients × grams × quantity / 100. Sources are `restaurant` (curated menus in `data/restaurant-foods.ts`, listed first; Panda Express is the first chain), `usda` (generic and branded), and `openfoodfacts`. A restaurant hit uses the chain as `brand`. Results are cached. Barcode lookup tries Open Food Facts, then USDA branded foods. A miss is `{ "error": "No food found for that barcode" }` with status 404.
 
 ```bash
 curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
