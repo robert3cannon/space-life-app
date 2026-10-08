@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MEAL_META } from "@/lib/constants";
 import { api } from "@/lib/client";
-import { round1, scaleFood, type FoodHit, type FoodNutrients } from "@/lib/food-catalog";
+import { round1, scaleListedFood, type FoodHit, type FoodNutrients } from "@/lib/food-catalog";
 import { getZonedParts } from "@/lib/time";
 import type { MealDto, MealItemDto, MealType } from "@/lib/types";
 import { BarcodeScan } from "./barcode-scan";
@@ -37,7 +37,7 @@ function nutrientsFor(line: CartLine): FoodNutrients {
   if (!Number.isFinite(qty) || qty <= 0) return { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
   if (line.hit) {
     const serving = line.hit.servings[line.servingIndex] ?? line.hit.servings[0];
-    if (serving) return scaleFood(line.hit.per100g, serving.grams, qty);
+    if (serving) return scaleListedFood(line.hit, serving.grams, qty);
   }
   return {
     calories: Math.max(0, Math.round(line.base.calories * qty)),
@@ -72,7 +72,7 @@ function lineFromItem(item: MealItemDto): CartLine {
 function lineFromHit(hit: FoodHit): CartLine {
   const serving = hit.servings[0];
   const nutrients = serving
-    ? scaleFood(hit.per100g, serving.grams, 1)
+    ? scaleListedFood(hit, serving.grams, 1)
     : { calories: hit.calories, proteinG: hit.proteinG, carbsG: hit.carbsG, fatG: hit.fatG };
   return {
     key: crypto.randomUUID(),
@@ -149,7 +149,8 @@ export function MealLogger({
         setSearching(true);
         setSearchNote(null);
         try {
-          const result = await api<{ foods: FoodHit[] }>(`/api/food/search?q=${encodeURIComponent(text)}&limit=6`);
+          const placeParam = place.trim() ? `&place=${encodeURIComponent(place.trim())}` : "";
+          const result = await api<{ foods: FoodHit[] }>(`/api/food/search?q=${encodeURIComponent(text)}&limit=6${placeParam}`);
           if (gen !== searchGen.current) return;
           setHits(result.foods);
           setSearchNote(result.foods.length ? null : "No database match. Add it with the calories you have.");
@@ -163,7 +164,7 @@ export function MealLogger({
       })();
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [open, query, scanning, step]);
+  }, [open, place, query, scanning, step]);
 
   function addHit(hit: FoodHit) {
     setCart((lines) => [...lines, lineFromHit(hit)]);

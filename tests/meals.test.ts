@@ -259,9 +259,17 @@ describe("meals", () => {
 
   it("suggests Home, curated restaurants, then recent places", () => {
     const places = mergePlaceSuggestions(["McDonald's", "Home", "Panda Express"], RESTAURANT_CHAINS.map((chain) => chain.name));
-    assert.equal(places[0], "Home");
-    assert.equal(places[1], "Panda Express");
-    assert.ok(places.includes("McDonald's"));
+    assert.deepEqual(places.slice(0, 9), [
+      "Home",
+      "Panda Express",
+      "McDonald's",
+      "Chick-fil-A",
+      "Dairy Queen",
+      "Chipotle",
+      "Five Guys",
+      "Jimmy John's",
+      "Culver's",
+    ]);
     assert.equal(places.filter((place) => place.toLowerCase() === "home").length, 1);
     assert.equal(places.filter((place) => place === "Panda Express").length, 1);
   });

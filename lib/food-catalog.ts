@@ -7,7 +7,7 @@ export type FoodNutrients = {
 
 export type FoodServing = {
   label: string;
-  grams: number;
+  grams: number | null;
 };
 
 export type FoodHit = {
@@ -58,6 +58,21 @@ export function scaleFood(per100g: FoodNutrients, grams: number, quantity: numbe
     proteinG: Math.max(0, round1(per100g.proteinG * factor)),
     carbsG: Math.max(0, round1(per100g.carbsG * factor)),
     fatG: Math.max(0, round1(per100g.fatG * factor)),
+  };
+}
+
+/** Count servings have no gram weight. Scale the listed serving by quantity. */
+export function scaleListedFood(
+  hit: Pick<FoodHit, "per100g" | "calories" | "proteinG" | "carbsG" | "fatG">,
+  grams: number | null,
+  quantity: number,
+): FoodNutrients {
+  if (grams && grams > 0) return scaleFood(hit.per100g, grams, quantity);
+  return {
+    calories: Math.max(0, Math.round(hit.calories * quantity)),
+    proteinG: Math.max(0, round1(hit.proteinG * quantity)),
+    carbsG: Math.max(0, round1(hit.carbsG * quantity)),
+    fatG: Math.max(0, round1(hit.fatG * quantity)),
   };
 }
 
@@ -137,7 +152,7 @@ export function usdaToHit(food: UsdaSearchFood): FoodHit | null {
     fatG: Math.max(0, round1(nutrientValue(food, [1004]) ?? 0)),
   };
   const servings = usdaServings(food);
-  const scaled = scaleFood(per100g, servings[0].grams, 1);
+  const scaled = scaleFood(per100g, servings[0].grams ?? 100, 1);
   const brand = tidyFoodName(food.brandName || food.brandOwner || "") || null;
   return {
     id: `usda:${food.fdcId}`,
@@ -174,7 +189,7 @@ export function offToHit(product: OffProduct): FoodHit | null {
   const servingGrams = servingText ? gramsFromText(servingText) : null;
   if (servingText && servingGrams) addServing(servings, servingText, servingGrams);
   addServing(servings, "100 g", 100);
-  const scaled = scaleFood(per100g, servings[0].grams, 1);
+  const scaled = scaleFood(per100g, servings[0].grams ?? 100, 1);
   const brand = product.brands?.split(",")[0]?.trim() || null;
   return {
     id: `off:${code}`,

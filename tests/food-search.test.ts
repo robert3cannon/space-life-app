@@ -61,7 +61,7 @@ describe("food search", () => {
     assert.ok(hit);
     assert.equal(hit.servings[0].label, "2 Tbsp");
     assert.equal(hit.calories, 100);
-    assert.equal(scaleFood(hit.per100g, hit.servings[0].grams, 2).calories, 200);
+    assert.equal(scaleFood(hit.per100g, hit.servings[0].grams ?? 0, 2).calories, 200);
   });
 
   it("searches through the bot API and caches the upstream calls", async () => {

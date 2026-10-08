@@ -1,4 +1,13 @@
-import { scaleFood, type FoodHit, type FoodNutrients, type FoodServing } from "../lib/food-catalog";
+import { scaleFood, scaleListedFood, type FoodHit, type FoodNutrients, type FoodServing } from "../lib/food-catalog";
+import { chickFilA } from "./restaurants/chick-fil-a";
+import { chipotle } from "./restaurants/chipotle";
+import { culvers } from "./restaurants/culvers";
+import { dairyQueen } from "./restaurants/dairy-queen";
+import { fiveGuys } from "./restaurants/five-guys";
+import { jimmyJohns } from "./restaurants/jimmy-johns";
+import type { RestaurantChain, RestaurantItem, RestaurantServing } from "./restaurants/types";
+
+export type { RestaurantChain, RestaurantItem, RestaurantServing };
 
 /**
  * Curated restaurant menus. Search these before USDA and Open Food Facts.
@@ -27,34 +36,11 @@ import { scaleFood, type FoodHit, type FoodNutrients, type FoodServing } from ".
  * Grams are Math.round of the default component quantities. Each component
  * serving basis is 100 g. Fries do not include the ketchup packet: the packet
  * is listed on the item, and the fry nutrition facts match the potato component alone.
+ *
+ * Later chains live in data/restaurants. Each file names the chain's own US
+ * nutrition page or PDF and the date it was checked. A serving with no gram
+ * weight is stored as a count (grams null) instead of an estimated weight.
  */
-
-export type RestaurantServing = {
-  label: string;
-  ounces: number;
-  grams: number;
-  calories: number;
-  fatG: number;
-  carbsG: number;
-  proteinG: number;
-};
-
-export type RestaurantItem = {
-  id: string;
-  name: string;
-  aliases?: string[];
-  servings: RestaurantServing[];
-};
-
-export type RestaurantChain = {
-  id: string;
-  name: string;
-  sourceUrl: string;
-  verifiedOn: string;
-  chainTokens: string[];
-  orderNote?: string;
-  items: RestaurantItem[];
-};
 
 const PANDA_NOTE = "Bowl: 1 side + 1 entree. Plate: 1 side + 2 entrees. Bigger Plate: 1 side + 3 entrees.";
 
@@ -326,9 +312,23 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
       },
     ],
   },
+  chickFilA,
+  dairyQueen,
+  chipotle,
+  fiveGuys,
+  jimmyJohns,
+  culvers,
 ];
 
 function per100g(serving: RestaurantServing): FoodNutrients {
+  if (!serving.grams) {
+    return {
+      calories: serving.calories,
+      proteinG: serving.proteinG,
+      carbsG: serving.carbsG,
+      fatG: serving.fatG,
+    };
+  }
   const factor = 100 / serving.grams;
   return {
     calories: serving.calories * factor,
@@ -367,42 +367,70 @@ function haystack(chain: RestaurantChain, item: RestaurantItem) {
   return [item.name, ...(item.aliases ?? []), chain.name].join(" ").toLowerCase();
 }
 
+function chainWords(chain: RestaurantChain) {
+  return new Set([...chain.chainTokens.flatMap((token) => words(token)), ...words(chain.name)]);
+}
+
+function mentionsChain(query: string, chain: RestaurantChain) {
+  const q = query.toLowerCase();
+  if (q.includes(chain.name.toLowerCase())) return true;
+  const tokens = new Set(chain.chainTokens.flatMap((token) => words(token)));
+  return words(query).some((word) => tokens.has(word));
+}
+
 function foodWords(query: string, chain: RestaurantChain) {
-  const skip = new Set(chain.chainTokens.map((token) => token.toLowerCase()));
+  if (!mentionsChain(query, chain)) return words(query);
+  const skip = chainWords(chain);
   return words(query).filter((word) => !skip.has(word));
 }
 
 function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
   const wanted = foodWords(query, chain);
   const hay = haystack(chain, item);
-  if (!wanted.length) return words(query).some((word) => chain.chainTokens.includes(word));
+  if (!wanted.length) return mentionsChain(query, chain);
   if (!wanted.every((word) => hay.includes(word))) return false;
   if (wanted.length > 1) return true;
   const word = wanted[0];
   const labels = [item.name, ...(item.aliases ?? [])];
-  if (labels.some((value) => words(value).length === 1 && words(value)[0] === word)) return true;
+  if (labels.some((value) => {
+    const tokens = words(value);
+    const content = tokens[0] === "the" ? tokens.slice(1) : tokens;
+    return content.length === 1 && content[0] === word;
+  })) return true;
   const namesAnotherItem = chain.items.some((other) => words(other.name).length === 1 && words(other.name)[0] === word);
   return namesAnotherItem && words(item.name).includes(word);
 }
 
-function score(chain: RestaurantChain, item: RestaurantItem, query: string) {
+const PLACE_BOOST = 10000;
+
+function placeMatches(chain: RestaurantChain, place: string) {
+  const value = place.trim().toLowerCase();
+  if (!value || value === "home") return false;
+  if (value === chain.name.toLowerCase()) return true;
+  const tokens = chainWords(chain);
+  const placeWords = words(value);
+  return placeWords.length > 0 && placeWords.every((word) => tokens.has(word));
+}
+
+function score(chain: RestaurantChain, item: RestaurantItem, query: string, place?: string) {
   const wanted = foodWords(query, chain).join(" ");
   const name = item.name.toLowerCase();
   let value = 0;
   if (wanted && name === wanted) value += 500;
   else if (wanted && name.startsWith(wanted)) value += 200;
   else if (wanted && name.includes(wanted)) value += 100;
+  if (place && placeMatches(chain, place)) value += PLACE_BOOST;
   return value;
 }
 
-export function searchRestaurantFoods(query: string): FoodHit[] {
+export function searchRestaurantFoods(query: string, place?: string): FoodHit[] {
   const q = query.trim().replace(/\s+/g, " ");
   const found: { hit: FoodHit; score: number; index: number }[] = [];
   let index = 0;
   for (const chain of RESTAURANT_CHAINS) {
     for (const item of chain.items) {
       if (!matches(chain, item, q)) continue;
-      found.push({ hit: toHit(chain, item), score: score(chain, item, q), index });
+      found.push({ hit: toHit(chain, item), score: score(chain, item, q, place), index });
       index += 1;
     }
   }
@@ -413,7 +441,9 @@ export function searchRestaurantFoods(query: string): FoodHit[] {
 export function restaurantServingMatchesLabel(hit: FoodHit) {
   const serving = hit.servings[0];
   if (!serving) return false;
-  const scaled = scaleFood(hit.per100g, serving.grams, 1);
+  const scaled = serving.grams
+    ? scaleFood(hit.per100g, serving.grams, 1)
+    : scaleListedFood(hit, null, 1);
   return scaled.calories === hit.calories
     && scaled.proteinG === hit.proteinG
     && scaled.carbsG === hit.carbsG

@@ -135,15 +135,16 @@ function mergeHits(query: string, lists: FoodHit[][]) {
     .map((item) => withoutGeneric(item.hit));
 }
 
-export async function searchFoods(query: string, limit = 8): Promise<FoodHit[]> {
+export async function searchFoods(query: string, limit = 8, place?: string): Promise<FoodHit[]> {
   const q = query.trim().replace(/\s+/g, " ");
   if (q.length < 2 || q.length > 80) throw new HttpError("Enter at least 2 characters", 400);
   const safeLimit = Math.min(15, Math.max(1, limit));
-  const key = `search:v5:${q.toLowerCase()}`;
+  const placeKey = (place ?? "").trim().toLowerCase();
+  const key = `search:v6:${placeKey}:${q.toLowerCase()}`;
   const cached = await readCache<FoodHit[]>(key);
   if (cached.hit) return cached.value.slice(0, safeLimit);
 
-  const curated = searchRestaurantFoods(q);
+  const curated = searchRestaurantFoods(q, place);
   let usdaFailed = false;
   const usda = await searchUsda(q).catch(() => {
     usdaFailed = true;

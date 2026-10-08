@@ -91,7 +91,8 @@ function searchLimit(raw: string | null) {
 export async function getFoodSearch(req: Request) {
   const url = new URL(req.url);
   const query = url.searchParams.get("q") ?? "";
-  const foods = await searchFoods(query, searchLimit(url.searchParams.get("limit")));
+  const place = url.searchParams.get("place") ?? "";
+  const foods = await searchFoods(query, searchLimit(url.searchParams.get("limit")), place);
   return json({ query: query.trim(), foods });
 }
 
