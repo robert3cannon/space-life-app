@@ -28,6 +28,9 @@ const names = [
   "Full Abs",
   "Obliques",
   "Arms",
+  "Chest",
+  "Upper Chest",
+  "Lower Chest",
   "Chest & Shoulders",
   "Back",
   "Legs & Glutes",
@@ -85,6 +88,16 @@ describe("circuits", () => {
     const lower = getCircuit("lower-abs");
     assert.ok(lower);
     assert.equal(lower.primary.includes("lower_abs"), true);
+    const chest = getCircuit("chest");
+    const upperChest = getCircuit("upper-chest");
+    const lowerChest = getCircuit("lower-chest");
+    assert.ok(chest && upperChest && lowerChest);
+    assert.deepEqual(chest.primary, ["mid_chest", "upper_chest", "lower_chest"]);
+    assert.deepEqual(upperChest.primary, ["upper_chest"]);
+    assert.deepEqual(lowerChest.primary, ["lower_chest"]);
+    for (const id of ["Pushups", "Incline_Push-Up", "Decline_Push-Up", "Dumbbell_Bench_Press"]) {
+      assert.ok(chest.stations.some((station) => station.libraryId === id), id);
+    }
     assert.ok(lower.stations.every((station) => getExercise(station.libraryId)?.primary.includes("lower_abs") || getExercise(station.libraryId)?.secondary.includes("lower_abs")));
   });
 
@@ -107,6 +120,15 @@ describe("circuits", () => {
     const ids = body.circuits.map((circuit: { id: string }) => circuit.id);
     assert.ok(ids.includes("lower-abs"));
     assert.equal(ids.includes("chest-shoulders"), false);
+    assert.equal(ids.includes("chest"), false);
+    const upper = await botList(
+      new Request("http://localhost/api/bot/circuits?muscle=upper_chest", { headers: bot }),
+      ctx,
+    );
+    const upperIds = (await upper.json()).circuits.map((circuit: { id: string }) => circuit.id);
+    assert.ok(upperIds.includes("upper-chest"));
+    assert.ok(upperIds.includes("chest"));
+    assert.equal(upperIds.includes("lower-chest"), false);
     assert.ok(body.circuits.every((circuit: { exerciseCount: number; primary: string[] }) => circuit.exerciseCount > 0 && circuit.primary.length > 0));
 
     const missing = await botOne(
