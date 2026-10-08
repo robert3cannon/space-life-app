@@ -135,12 +135,27 @@ export function AppleHealthView() {
       <p className="sub">A website cannot read HealthKit. Shortcuts on your iPhone can. Orbit accepts a daily batch and can hand food and water logged today back.</p>
       <Link href="/settings" className="text-btn">All settings</Link>
 
+      <section className="card anchor" id="start" style={{ marginTop: 8 }}>
+        <h2 style={{ marginTop: 0 }}>Start here</h2>
+        <ol className="steps">
+          <li>Copy the sync token.</li>
+          <li>Build the import shortcut and run it once by hand.</li>
+          <li>Build the export shortcut, then a Time of Day automation that runs both each evening.</li>
+        </ol>
+      </section>
+      <nav className="chips jump-row" aria-label="Apple Health sections">
+        <a className="chip" href="#token">Token</a>
+        <a className="chip" href="#import">Import</a>
+        <a className="chip" href="#export">Export</a>
+        <a className="chip" href="#automation">Daily run</a>
+      </nav>
+
       {status.loading && !data ? <Loading /> : null}
       {status.error ? <ErrorNote message={status.error} onRetry={status.reload} /> : null}
 
       {data ? (
         <>
-          <section className="card" style={{ marginTop: 16 }}>
+          <section className="card anchor" id="token" style={{ marginTop: 12 }}>
             <h2 style={{ marginTop: 0 }}>Sync token</h2>
             <p className="muted">Paste this into the Authorization header in the shortcut, after the word Bearer and a space. Regenerate if you shared it. Revoke to turn the phone token off. A token set on the server as HEALTH_SYNC_TOKEN keeps working either way.</p>
             {data.envTokenConfigured ? <p className="faint">A server token is also accepted.</p> : null}
@@ -222,7 +237,7 @@ export function AppleHealthView() {
         <Address label="Acknowledge" value={ackUrl} onCopy={() => void copy(ackUrl, "Acknowledge address")} />
       </section>
 
-      <section className="card" style={{ marginTop: 12 }}>
+      <section className="card anchor" id="import" style={{ marginTop: 12 }}>
         <h2 style={{ marginTop: 0 }}>Import shortcut</h2>
         <p className="muted">Apple signs shortcut files, and an unsigned file will not install. Build this once in Shortcuts. Action names below are the ones you search for.</p>
         <ol className="steps">
@@ -233,7 +248,7 @@ export function AppleHealthView() {
           <li>Add <strong>Calculate Statistics</strong>. Health Samples: the Steps result. Statistic: <strong>Sum</strong>. That number is steps.</li>
           <li>
             Repeat Find Health Samples and Calculate Statistics for the rest of the day. Use Sum unless noted.
-            <ul className="steps">
+            <ul className="detail">
               <li>Active Energy → activeEnergy</li>
               <li>Resting Energy. If the type list says Basal Energy Burned, use that. → restingEnergy</li>
               <li>Exercise Time, or Apple Exercise Time → exerciseMinutes</li>
@@ -245,7 +260,7 @@ export function AppleHealthView() {
           <li>Add <strong>Find Health Samples</strong>. Type: <strong>Workouts</strong>. Same Start of Day through Current Date.</li>
           <li>
             Add <strong>Repeat with Each</strong> over those workouts. Inside the repeat, add <strong>Dictionary</strong>. Fill each key with <strong>Get Details of Health Sample</strong> on the Repeat Item:
-            <ul className="steps">
+            <ul className="detail">
               <li>type → Workout Type</li>
               <li>start → Start Date</li>
               <li>end → End Date</li>
@@ -258,7 +273,7 @@ export function AppleHealthView() {
           <li>Add <strong>Find Health Samples</strong>. Type: <strong>Sleep</strong>. Last night started yesterday, so set Start Date to Start of Day, then <strong>Adjust Date</strong> to subtract 1 day. End Date: Current Date.</li>
           <li>
             Add <strong>Repeat with Each</strong> over the sleep samples. Inside, <strong>Dictionary</strong>:
-            <ul className="steps">
+            <ul className="detail">
               <li>state → Value. If the detail list says Category or Sleep Analysis, use that. Asleep, In Bed, and Awake are all accepted.</li>
               <li>start → Start Date</li>
               <li>end → End Date</li>
@@ -267,7 +282,7 @@ export function AppleHealthView() {
           </li>
           <li>
             Add <strong>Dictionary</strong> for the body:
-            <ul className="steps">
+            <ul className="detail">
               <li>date → the yyyy-MM-dd text</li>
               <li>steps, activeEnergy, restingEnergy, exerciseMinutes, restingHeartRate, weight, dietaryWater → the statistics above</li>
               <li>workouts → Workouts</li>
@@ -281,7 +296,7 @@ export function AppleHealthView() {
         </ol>
       </section>
 
-      <section className="card" style={{ marginTop: 12 }}>
+      <section className="card anchor" id="export" style={{ marginTop: 12 }}>
         <h2 style={{ marginTop: 0 }}>Export shortcut</h2>
         <p className="muted">This reads meals and water logged in Orbit today, writes them with Log Health Sample, then tells Orbit which ids were written.</p>
         <ol className="steps">
@@ -290,7 +305,7 @@ export function AppleHealthView() {
           <li>Add <strong>Get Dictionary Value</strong>. Key: <strong>food</strong>. Dictionary: the Contents of URL.</li>
           <li>
             Add <strong>Repeat with Each</strong>. Inside, add four <strong>Log Health Sample</strong> actions. Date for each is loggedAt on the Repeat Item, via <strong>Get Dictionary Value</strong>:
-            <ul className="steps">
+            <ul className="detail">
               <li>Dietary Energy, value calories, unit kcal</li>
               <li>Dietary Protein, value proteinG, unit g</li>
               <li>Dietary Carbohydrates, value carbsG, unit g</li>
@@ -305,7 +320,7 @@ export function AppleHealthView() {
         </ol>
       </section>
 
-      <section className="card" style={{ marginTop: 12 }}>
+      <section className="card anchor" id="automation" style={{ marginTop: 12 }}>
         <h2 style={{ marginTop: 0 }}>Run it every day</h2>
         <ol className="steps">
           <li>In Shortcuts, open the Automation tab and tap +.</li>

@@ -120,7 +120,7 @@ The UI is one account. Middleware redirects everyone else to `/login`. The sessi
 
 A PWA cannot read HealthKit. Orbit takes a JSON batch from an iOS Shortcut and can hand today's food and water back so the shortcut can write them with **Log Health Sample**.
 
-Open **Settings → Apple Health** (also under More). Generate a device token there, or set `HEALTH_SYNC_TOKEN` on the server. The shortcut sends `Authorization: Bearer <token>`. Regenerate replaces the device token. Revoke turns it off. The server token keeps working after a revoke. The same screen shows the last sync and a weight trend, and it fills in the three addresses for this install:
+Open **More → Wellness → Apple Health** (the same screen is linked from Settings). The page starts with three steps: copy the token, build the import shortcut, then build the export shortcut and a daily automation. Jump chips on that screen skip to each section. Generate a device token there, or set `HEALTH_SYNC_TOKEN` on the server. The shortcut sends `Authorization: Bearer <token>`. Regenerate replaces the device token. Revoke turns it off. The server token keeps working after a revoke. The same screen shows the last sync and a weight trend, and it fills in the three addresses for this install:
 
 - `POST /api/apple-health/import`
 - `GET /api/apple-health/export`

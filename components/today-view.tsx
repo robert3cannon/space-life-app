@@ -48,8 +48,8 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
       </section>
 
       <div className="section-title">
-        <h2>Today</h2>
-        <Link href="/schedule">Schedule</Link>
+        <h2>Schedule</h2>
+        <Link href="/schedule">Week</Link>
       </div>
       <div className="stack">
         {data.events.length === 0 ? <p className="muted">No blocks today.</p> : null}
@@ -92,24 +92,9 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
         )}
       </section>
 
-      {data.health ? (
-        <Link href="/settings/health" className="card" style={{ display: "block", marginTop: 18 }}>
-          <span className="kicker">Apple Health</span>
-          <strong className="stat" style={{ display: "block", marginTop: 6 }}>
-            {data.health.steps != null ? `${data.health.steps.toLocaleString("en-US")} steps` : "Steps not in yet"}
-          </strong>
-          <span className="faint" style={{ display: "block", marginTop: 6 }}>
-            {data.health.activeKcal != null ? `${Math.round(data.health.activeKcal)} active kcal` : "No active calories"}
-            {data.health.exerciseMinutes != null ? ` · ${Math.round(data.health.exerciseMinutes)} exercise min` : ""}
-          </span>
-          {data.health.dietaryWaterOz != null ? (
-            <span className="faint" style={{ display: "block", marginTop: 4 }}>
-              Health water {ounces(data.health.dietaryWaterOz)} oz, kept out of the water log
-            </span>
-          ) : null}
-        </Link>
-      ) : null}
-
+      <div className="section-title">
+        <h2>Wellness</h2>
+      </div>
       <div className="pair">
         <Link href="/water" className="card pair-card">
           <span className="kicker">Water</span>
@@ -137,6 +122,12 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
           )}
         </Link>
       </div>
+      {data.health ? (
+        <Link href="/settings/health" className="card health-strip">
+          <span className="kicker">Apple Health</span>
+          <strong>{healthLine(data.health)}</strong>
+        </Link>
+      ) : null}
 
       <div className="section-title">
         <h2>Habits</h2>
@@ -199,6 +190,13 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
 
 function ounces(value: number) {
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+}
+
+function healthLine(health: NonNullable<TodayPayload["health"]>) {
+  const bits = [health.steps != null ? `${health.steps.toLocaleString("en-US")} steps` : "Steps not in yet"];
+  if (health.activeKcal != null) bits.push(`${Math.round(health.activeKcal)} kcal`);
+  if (health.exerciseMinutes != null) bits.push(`${Math.round(health.exerciseMinutes)} min`);
+  return bits.join(" · ");
 }
 
 function HabitList({ habits, onChange }: { habits: HabitSummary[]; onChange: () => Promise<void> }) {
