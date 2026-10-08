@@ -102,10 +102,10 @@ export function WorkoutsView() {
   }
 
   return (
-    <main className="page">
+    <main className="page with-fab">
       <PageTitle title="Train" />
       <p className="kicker">Training</p>
-      <h1 className="display" style={{ fontSize: 32 }}>Workouts</h1>
+      <h1 className="display">Workouts</h1>
       <p className="sub">Plan the session, check off sets, and see which muscles you trained.</p>
       <Link href="/exercises" className="btn-ghost" style={{ display: "block", textAlign: "center", marginBottom: 16 }}>Exercise library</Link>
       {coverage.data ? (

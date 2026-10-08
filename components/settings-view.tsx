@@ -128,7 +128,7 @@ export function SettingsView() {
     <main className="page">
       <PageTitle title="Settings" />
       <p className="kicker">Orbit</p>
-      <h1 className="display" style={{ fontSize: 32 }}>Settings</h1>
+      <h1 className="display">Settings</h1>
       <p className="sub">Times stay on America/Detroit, even if the phone is set somewhere else.</p>
 
       <section className="card" style={{ marginTop: 18 }}>

@@ -65,7 +65,7 @@ export function ExerciseLibrary() {
       <PageTitle title="Exercise library" />
       <Link href={addTo ? `/workouts/${addTo}` : "/workouts"} className="text-btn">Back</Link>
       <p className="kicker" style={{ marginTop: 12 }}>Library</p>
-      <h1 className="display" style={{ fontSize: 32 }}>Exercises</h1>
+      <h1 className="display">Exercises</h1>
       <p className="sub">Search the library, or tap a muscle to see what trains it.</p>
       <BodyMap
         selected={muscle}

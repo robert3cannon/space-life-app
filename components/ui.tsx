@@ -54,7 +54,7 @@ export function Ring({ value, max }: { value: number; max: number }) {
       <text className="ring-label" x="60" y="58" textAnchor="middle" fill="#f6f3ff" fontSize="20" fontFamily="Outfit, sans-serif">
         {value}
       </text>
-      <text x="60" y="76" textAnchor="middle" fill="#7e759e" fontSize="11" fontFamily="Outfit, sans-serif">
+      <text x="60" y="76" textAnchor="middle" fill="#c8c0e2" fontSize="12" fontFamily="Outfit, sans-serif">
         / {max}
       </text>
     </svg>

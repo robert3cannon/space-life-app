@@ -33,7 +33,7 @@ export function ActivityView() {
     <main className="page">
       <PageTitle title="Activity" />
       <p className="kicker">Feed</p>
-      <h1 className="display" style={{ fontSize: 32 }}>Activity</h1>
+      <h1 className="display">Activity</h1>
       <p className="sub">Notes from you and from the bots that share this app.</p>
       <form onSubmit={(event) => void send(event)} style={{ marginTop: 16 }}>
         <label className="field">

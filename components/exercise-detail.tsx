@@ -64,7 +64,7 @@ export function ExerciseDetail({ id }: { id: string }) {
       {data ? (
         <>
           <p className="kicker" style={{ marginTop: 12 }}>{data.equipment} · {data.level}</p>
-          <h1 className="display" style={{ fontSize: 30 }}>{data.name}</h1>
+          <h1 className="display">{data.name}</h1>
           <Demo images={data.images} name={data.name} />
           <BodyMap primary={data.primary} secondary={data.secondary} label={`${data.name} muscles`} />
           <div className="stack" style={{ marginTop: 8 }}>

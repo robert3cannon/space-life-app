@@ -137,16 +137,16 @@ export function ScheduleView() {
   }
 
   return (
-    <main className="page">
+    <main className="page with-fab">
       <PageTitle title="Schedule" />
       <div className="spread">
         <div>
           <p className="kicker">Eastern time</p>
-          <h1 className="display" style={{ fontSize: 32 }}>Schedule</h1>
+          <h1 className="display">Schedule</h1>
         </div>
         <div className="row">
-          <button className="btn-ghost" style={{ width: 44, padding: 0 }} type="button" onClick={() => shiftWeek(-7)} aria-label="Previous week">‹</button>
-          <button className="btn-ghost" style={{ width: 44, padding: 0 }} type="button" onClick={() => shiftWeek(7)} aria-label="Next week">›</button>
+          <button className="btn-ghost icon-btn" type="button" onClick={() => shiftWeek(-7)} aria-label="Previous week">‹</button>
+          <button className="btn-ghost icon-btn" type="button" onClick={() => shiftWeek(7)} aria-label="Next week">›</button>
         </div>
       </div>
       <div className="seg" style={{ marginTop: 14 }}>

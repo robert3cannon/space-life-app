@@ -247,14 +247,14 @@ export function FoodView() {
   const maxBar = Math.max(1, ...(week.data?.days.map((item) => item.calories) ?? [1]));
 
   return (
-    <main className="page">
+    <main className="page with-fab">
       <PageTitle title="Food" />
       <p className="kicker">Intake</p>
       <div className="spread">
-        <h1 className="display" style={{ fontSize: 32 }}>{active ? formatLongDate(active).split(",")[0] : "Food"}</h1>
+        <h1 className="display">{active ? formatLongDate(active).split(",")[0] : "Food"}</h1>
         <div className="row">
-          <button className="btn-ghost" style={{ width: 44, padding: 0 }} type="button" aria-label="Previous day" onClick={() => active && setDate(addCalendarDays(active, -1))}>‹</button>
-          <button className="btn-ghost" style={{ width: 44, padding: 0 }} type="button" aria-label="Next day" onClick={() => active && setDate(addCalendarDays(active, 1))}>›</button>
+          <button className="btn-ghost icon-btn" type="button" aria-label="Previous day" onClick={() => active && setDate(addCalendarDays(active, -1))}>‹</button>
+          <button className="btn-ghost icon-btn" type="button" aria-label="Next day" onClick={() => active && setDate(addCalendarDays(active, 1))}>›</button>
         </div>
       </div>
       <p className="sub">{active ? formatLongDate(active) : ""}</p>

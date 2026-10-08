@@ -55,10 +55,10 @@ export function RemindersView() {
   }
 
   return (
-    <main className="page">
+    <main className="page with-fab">
       <PageTitle title="Reminders" />
       <p className="kicker">Nudges</p>
-      <h1 className="display" style={{ fontSize: 32 }}>Reminders</h1>
+      <h1 className="display">Reminders</h1>
       <p className="sub">Before blocks, meals, and workouts — plus anything you add.</p>
       {loading && !data ? <Loading /> : null}
       {error ? <ErrorNote message={error} onRetry={reload} /> : null}

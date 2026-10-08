@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -20,6 +21,20 @@ function isOn(pathname: string, href: string) {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  useEffect(() => {
+    const onFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.matches("input, textarea, select")) return;
+      if (target.closest(".sheet")) return;
+      const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.setTimeout(() => {
+        target.scrollIntoView({ block: "center", behavior: motion ? "auto" : "smooth" });
+      }, 280);
+    };
+    document.addEventListener("focusin", onFocus);
+    return () => document.removeEventListener("focusin", onFocus);
+  }, []);
   return (
     <>
       {children}
@@ -68,10 +83,10 @@ function TrainIcon() {
 }
 function MoreIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="6" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="18" cy="12" r="1.5" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1.2" fill="currentColor" stroke="none" />
     </svg>
   );
 }

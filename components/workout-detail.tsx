@@ -59,7 +59,7 @@ export function WorkoutDetail({ id }: { id: string }) {
       {data ? (
         <>
           <p className="kicker" style={{ marginTop: 12 }}>{data.status}</p>
-          <h1 className="display" style={{ fontSize: 32 }}>{data.title}</h1>
+          <h1 className="display">{data.title}</h1>
           <p className="sub">
             {data.scheduledAt ? `${formatLongDate(eventDay(data.scheduledAt))} · ${formatTime(data.scheduledAt)}` : "Unscheduled"}
           </p>

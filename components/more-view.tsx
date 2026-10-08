@@ -14,7 +14,7 @@ export function MoreView() {
     <main className="page">
       <PageTitle title="More" />
       <p className="kicker">Orbit</p>
-      <h1 className="display" style={{ fontSize: 32 }}>More</h1>
+      <h1 className="display">More</h1>
       <div className="stack" style={{ marginTop: 18 }}>
         {links.map((link) => (
           <Link key={link.href} href={link.href} className="card link-card">
