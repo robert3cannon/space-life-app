@@ -5,6 +5,7 @@ import { GET as botExercises } from "../app/api/bot/exercises/route";
 import { GET as botExercise } from "../app/api/bot/exercises/[id]/route";
 import { HttpError } from "../lib/errors";
 import { EXERCISES, resolveExercise, searchExercises } from "../lib/exercises";
+import { BACK_MUSCLES, FRONT_MUSCLES } from "../lib/body-figure";
 import { MUSCLE_IDS, isMuscleId } from "../lib/muscles";
 
 const ctx = undefined as never;
@@ -26,6 +27,10 @@ describe("exercise library", () => {
     }
     for (const muscle of MUSCLE_IDS) {
       assert.ok(EXERCISES.some((exercise) => exercise.primary.includes(muscle)), muscle);
+    }
+    const drawn = new Set([...FRONT_MUSCLES, ...BACK_MUSCLES].map((shape) => shape.id));
+    for (const muscle of MUSCLE_IDS) {
+      assert.ok(drawn.has(muscle), `body map missing ${muscle}`);
     }
   });
 

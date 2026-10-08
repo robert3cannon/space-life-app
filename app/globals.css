@@ -386,13 +386,46 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   color: #fff;
 }
 .body-map { margin: 8px 0 4px; }
-.body-figure { width: min(100%, 300px); height: auto; display: block; margin: 0 auto; }
-.figure { fill: rgba(126, 117, 168, 0.22); stroke: rgba(214, 206, 255, 0.35); stroke-width: 1.2; pointer-events: none; }
-.muscle { fill: rgba(86, 74, 140, 0.55); stroke: rgba(214, 206, 255, 0.45); stroke-width: 1; cursor: pointer; }
-.muscle.primary { fill: #d8c6ff; stroke: #f4eeff; }
-.muscle.secondary { fill: #7aefff; stroke: #dffbff; }
-.muscle.selected { fill: #ffc56d; stroke: #ffe7bf; }
-.muscle.neglected { fill: rgba(48, 40, 78, 0.35); stroke: rgba(255, 130, 160, 0.8); }
+.body-map { touch-action: manipulation; }
+.body-figure {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+}
+.figure-layer { pointer-events: none; }
+.figure { fill: rgba(126, 117, 168, 0.32); stroke: rgba(214, 206, 255, 0.42); stroke-width: 1.6; }
+.figure.hair { fill: rgba(58, 48, 102, 0.82); stroke: rgba(214, 206, 255, 0.22); }
+.figure.joint { fill: rgba(168, 158, 204, 0.28); stroke: rgba(214, 206, 255, 0.32); }
+.muscle {
+  fill: rgba(176, 158, 230, 0.4);
+  stroke: rgba(232, 224, 255, 0.55);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+.muscle.primary {
+  fill: rgba(216, 198, 255, 0.84);
+  stroke: #f4eeff;
+  filter: drop-shadow(0 0 3px rgba(216, 198, 255, 0.95));
+}
+.muscle.secondary {
+  fill: rgba(122, 239, 255, 0.72);
+  stroke: #dffbff;
+  filter: drop-shadow(0 0 3px rgba(122, 239, 255, 0.9));
+}
+.muscle.selected {
+  fill: rgba(255, 197, 109, 0.88);
+  stroke: #ffe7bf;
+  filter: drop-shadow(0 0 4px rgba(255, 197, 109, 0.95));
+}
+.muscle.neglected {
+  fill: rgba(48, 40, 78, 0.3);
+  stroke: rgba(255, 130, 160, 0.85);
+}
 .map-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 4px; }
 .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
