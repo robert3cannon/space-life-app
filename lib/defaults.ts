@@ -22,4 +22,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sleepReminder: { enabled: false, time: "01:00" },
   habitReminder: { enabled: false, time: "22:00" },
   equipment: DEFAULT_EQUIPMENT,
+  circuitAudio: { enabled: true, volume: 70 },
 };

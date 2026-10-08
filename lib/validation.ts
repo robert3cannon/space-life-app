@@ -183,6 +183,12 @@ export const settingsPatchSchema = z.object({
       dumbbellCount: z.number().int().min(1).max(2),
     })
     .optional(),
+  circuitAudio: z
+    .object({
+      enabled: z.boolean(),
+      volume: z.number().int().min(0).max(100),
+    })
+    .optional(),
 });
 
 export const waterCreateSchema = z.object({

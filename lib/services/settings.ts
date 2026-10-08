@@ -32,7 +32,16 @@ function normalize(value: AppSettings): AppSettings {
       dumbbellLb: value.equipment?.dumbbellLb ?? DEFAULT_EQUIPMENT.dumbbellLb,
       dumbbellCount: value.equipment?.dumbbellCount ?? DEFAULT_EQUIPMENT.dumbbellCount,
     },
+    circuitAudio: {
+      enabled: typeof value.circuitAudio?.enabled === "boolean" ? value.circuitAudio.enabled : DEFAULT_SETTINGS.circuitAudio.enabled,
+      volume: clampVolume(value.circuitAudio?.volume),
+    },
   };
+}
+
+function clampVolume(value: number | undefined) {
+  if (value == null || Number.isNaN(value)) return DEFAULT_SETTINGS.circuitAudio.volume;
+  return Math.min(100, Math.max(0, Math.round(value)));
 }
 
 export async function getSettings(): Promise<AppSettings> {
@@ -56,6 +65,7 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     sleepReminder: patch.sleepReminder ?? current.sleepReminder,
     habitReminder: patch.habitReminder ?? current.habitReminder,
     equipment: patch.equipment ?? current.equipment,
+    circuitAudio: patch.circuitAudio ?? current.circuitAudio,
   });
   const db = getDb();
   await db

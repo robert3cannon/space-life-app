@@ -440,6 +440,8 @@ Suggested home flows built from the exercise library. Each one has a beginner an
 
 The signed-in app has the same list, detail, and schedule routes under `/api/circuits`. `POST /api/circuits/:id/complete` with the same optional `difficulty` and `rounds` logs the flow as a done workout, with every set checked, so it counts on the weekly muscle map and a workout habit.
 
+During rest the player shows the next exercise: name, dose, board or dumbbell note, the demo frames, and the how-to. The countdown and the pause, skip, and +15s controls stay on screen. Cues are synthesized in the browser: a rising 3-2-1 in the last three seconds of rest and timed work, a short chime when a set finishes, and a longer one when the circuit ends. Start unlocks audio. The cues are short and use an ambient session so other music keeps playing. The player’s sound switch and volume are `circuitAudio`.
+
 ```bash
 curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
   "$BASE/api/bot/circuits?muscle=lower_abs"
@@ -514,6 +516,8 @@ curl -sS -X PATCH -H "Authorization: Bearer $BOT_API_TOKEN" \
 Changing any of those drops unsent water, sleep, and habit reminders so the next cron run recreates them. If today's water goal is already met, today's water nudges are cleared.
 
 `equipment` is `{ "gear": ["bodyweight", "pushup_board", "dumbbells"], "dumbbellLb": 15, "dumbbellCount": 2 }`. That is the default when the key is missing, so an older settings row picks it up with no migration. `gear` may be any subset of those three ids. Circuit lists and the exercise library follow it. Dumbbell stations note the weight and a 2-second lower. Push-up stations that use the board note the color zone.
+
+`circuitAudio` is `{ "enabled": true, "volume": 70 }`. Volume is 0–100. A missing key uses that default. The guided player reads and updates it.
 
 ### Water
 

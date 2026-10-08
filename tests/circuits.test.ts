@@ -245,6 +245,20 @@ describe("circuits", () => {
     assert.deepEqual(restored.equipment.gear, DEFAULT_EQUIPMENT.gear);
   });
 
+  it("stores circuit sound preferences and fills a missing key", async () => {
+    const first = await getSettings();
+    assert.equal(first.circuitAudio.enabled, true);
+    assert.equal(first.circuitAudio.volume, 70);
+    const sql = getSql();
+    await sql`update settings set value = value - 'circuitAudio' where key = 'app'`;
+    const filled = await getSettings();
+    assert.deepEqual(filled.circuitAudio, { enabled: true, volume: 70 });
+    const saved = await updateSettings({ circuitAudio: { enabled: false, volume: 25 } });
+    assert.deepEqual(saved.circuitAudio, { enabled: false, volume: 25 });
+    assert.deepEqual((await getSettings()).circuitAudio, { enabled: false, volume: 25 });
+    await updateSettings({ circuitAudio: { enabled: true, volume: 70 } });
+  });
+
   it("schedules a circuit onto a day with a workout reminder", async () => {
     const denied = await botSchedule(
       new Request("http://localhost/api/bot/circuits/lower-abs/schedule", {

@@ -49,6 +49,8 @@ export function SettingsView() {
   const [gear, setGear] = useState<GearId[]>(["bodyweight", "pushup_board", "dumbbells"]);
   const [dumbbellLb, setDumbbellLb] = useState("15");
   const [dumbbellCount, setDumbbellCount] = useState("2");
+  const [soundOn, setSoundOn] = useState(true);
+  const [soundVolume, setSoundVolume] = useState("70");
   const toast = useToast();
 
   useEffect(() => {
@@ -83,6 +85,8 @@ export function SettingsView() {
     setGear(settings.data.equipment.gear);
     setDumbbellLb(String(settings.data.equipment.dumbbellLb));
     setDumbbellCount(String(settings.data.equipment.dumbbellCount));
+    setSoundOn(settings.data.circuitAudio.enabled);
+    setSoundVolume(String(settings.data.circuitAudio.volume));
   }, [settings.data]);
 
   async function enable() {
@@ -144,6 +148,7 @@ export function SettingsView() {
             dumbbellLb: Number(dumbbellLb),
             dumbbellCount: Number(dumbbellCount),
           },
+          circuitAudio: { enabled: soundOn, volume: Number(soundVolume) },
         }),
       });
       toast("Saved");
@@ -236,6 +241,23 @@ export function SettingsView() {
                 </label>
               </div>
             ) : null}
+          </section>
+          <section className="card" style={{ marginTop: 12 }}>
+            <strong>Circuit sounds</strong>
+            <p className="faint">Short chimes in the guided player. Other music keeps playing.</p>
+            <div className="grid-2" style={{ marginTop: 8 }}>
+              <label className="field">
+                <span>Sound</span>
+                <select value={soundOn ? "yes" : "no"} onChange={(event) => setSoundOn(event.target.value === "yes")}>
+                  <option value="yes">On</option>
+                  <option value="no">Off</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Volume, {soundVolume}</span>
+                <input type="range" min={0} max={100} step={1} value={soundVolume} onChange={(event) => setSoundVolume(event.target.value)} />
+              </label>
+            </div>
           </section>
           <section className="card" style={{ marginTop: 12 }}>
             <strong>Daily targets</strong>

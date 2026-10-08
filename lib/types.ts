@@ -42,6 +42,12 @@ export type ClockReminderSetting = {
 export const HABIT_AUTOS = ["protein", "water", "workout", "steps"] as const;
 export type HabitAuto = (typeof HABIT_AUTOS)[number];
 
+export type CircuitAudioSetting = {
+  enabled: boolean;
+  /** 0–100. Short cues mix with other audio. */
+  volume: number;
+};
+
 export type AppSettings = {
   timezone: string;
   targets: Targets;
@@ -53,6 +59,7 @@ export type AppSettings = {
   sleepReminder: ClockReminderSetting;
   habitReminder: ClockReminderSetting;
   equipment: EquipmentProfile;
+  circuitAudio: CircuitAudioSetting;
 };
 
 export type EventDto = {
