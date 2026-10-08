@@ -58,6 +58,18 @@ export const exerciseAppendSchema = z
   })
   .refine((value) => Boolean(value.libraryId || value.name), "Provide a library exercise or a name");
 
+export const circuitScheduleSchema = z.object({
+  date: dateField,
+  time: timeField,
+  difficulty: z.enum(["beginner", "intermediate"]).optional(),
+  rounds: z.number().int().min(1).max(5).optional(),
+});
+
+export const circuitCompleteSchema = z.object({
+  difficulty: z.enum(["beginner", "intermediate"]).optional(),
+  rounds: z.number().int().min(1).max(5).optional(),
+});
+
 export const workoutCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
   scheduledAt: z.string().min(1).nullable().optional(),
@@ -236,6 +248,8 @@ export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type EventPatch = z.infer<typeof eventPatchSchema>;
 export type FoodCreate = z.infer<typeof foodCreateSchema>;
 export type FoodPatch = z.infer<typeof foodPatchSchema>;
+export type CircuitSchedule = z.infer<typeof circuitScheduleSchema>;
+export type CircuitComplete = z.infer<typeof circuitCompleteSchema>;
 export type WorkoutCreate = z.infer<typeof workoutCreateSchema>;
 export type WorkoutPatch = z.infer<typeof workoutPatchSchema>;
 export type ExerciseInput = z.infer<typeof exerciseSchema>;

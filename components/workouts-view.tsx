@@ -107,7 +107,10 @@ export function WorkoutsView() {
       <p className="kicker">Training</p>
       <h1 className="display">Workouts</h1>
       <p className="sub">Plan the session, check off sets, and see which muscles you trained.</p>
-      <Link href="/exercises" className="btn-ghost" style={{ display: "block", textAlign: "center", marginBottom: 16 }}>Exercise library</Link>
+      <div className="section-title" style={{ marginTop: 18 }}><h2>Suggested flows</h2></div>
+      <p className="muted" style={{ marginTop: 0 }}>Home circuits from the library. Tap through, or save one to a day.</p>
+      <Link href="/circuits" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0 10px" }}>Circuits</Link>
+      <Link href="/exercises" className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>Exercise library</Link>
       {coverage.data ? (
         <section className="card" style={{ marginBottom: 16 }}>
           <strong>This week</strong>

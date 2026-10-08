@@ -426,6 +426,30 @@ curl -sS -X PATCH -H "Authorization: Bearer $BOT_API_TOKEN" \
   "$BASE/api/bot/workouts/WORKOUT_ID"
 ```
 
+### Circuits
+
+Suggested home flows built from the exercise library. Each one has a beginner and an intermediate prescription (reps or timed work, rest, and default rounds).
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/circuits` | List. Optional `?muscle=` keeps circuits whose target muscles include that id |
+| GET | `/api/bot/circuits/:id` | One circuit, with ordered exercises, steps, images, and both levels |
+| POST | `/api/bot/circuits/:id/schedule` | Plan it on a day. Body is `{ "date": "YYYY-MM-DD", "time": "HH:MM" }` |
+
+`difficulty` (`beginner` or `intermediate`) and `rounds` (1–5) are optional. Beginner defaults to 2 rounds, intermediate to 3. The new workout uses the usual reminder (30 minutes before, unless settings say otherwise) and shows up on Today and Schedule.
+
+The signed-in app has the same list, detail, and schedule routes under `/api/circuits`. `POST /api/circuits/:id/complete` with the same optional `difficulty` and `rounds` logs the flow as a done workout, with every set checked, so it counts on the weekly muscle map and a workout habit.
+
+```bash
+curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
+  "$BASE/api/bot/circuits?muscle=lower_abs"
+
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-12","time":"18:00","difficulty":"beginner","rounds":2}' \
+  "$BASE/api/bot/circuits/lower-abs/schedule"
+```
+
 ### Reminders
 
 | Method | Path | |
