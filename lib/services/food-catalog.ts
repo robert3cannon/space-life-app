@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { searchRestaurantFoods } from "../../data/restaurant-foods";
+import { RESTAURANT_CHAINS, searchRestaurantFoods } from "../../data/restaurant-foods";
 import { getDb } from "../db";
 import { foodCache } from "../db/schema";
 import { HttpError } from "../errors";
@@ -135,14 +135,24 @@ function mergeHits(query: string, lists: FoodHit[][]) {
     .map((item) => withoutGeneric(item.hit));
 }
 
+function catalogStamp() {
+  const items = RESTAURANT_CHAINS.reduce((count, chain) => count + chain.items.length, 0);
+  return `${RESTAURANT_CHAINS.length}.${items}`;
+}
+
+/** A cached row from before sourceType, or from an older catalog, must not be served. */
+function cacheIsCurrent(foods: FoodHit[]) {
+  return foods.every((hit) => hit.source !== "restaurant" || hit.sourceType === "official" || hit.sourceType === "third-party");
+}
+
 export async function searchFoods(query: string, limit = 8, place?: string): Promise<FoodHit[]> {
   const q = query.trim().replace(/\s+/g, " ");
   if (q.length < 2 || q.length > 80) throw new HttpError("Enter at least 2 characters", 400);
   const safeLimit = Math.min(15, Math.max(1, limit));
   const placeKey = (place ?? "").trim().toLowerCase();
-  const key = `search:v7:${placeKey}:${q.toLowerCase()}`;
+  const key = `search:v8:${catalogStamp()}:${placeKey}:${q.toLowerCase()}`;
   const cached = await readCache<FoodHit[]>(key);
-  if (cached.hit) return cached.value.slice(0, safeLimit);
+  if (cached.hit && cacheIsCurrent(cached.value)) return cached.value.slice(0, safeLimit);
 
   const curated = searchRestaurantFoods(q, place);
   let usdaFailed = false;

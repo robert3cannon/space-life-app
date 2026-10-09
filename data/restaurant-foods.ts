@@ -411,13 +411,10 @@ function foodWords(query: string, chain: RestaurantChain) {
   return words(query).filter((word) => !skip.has(word));
 }
 
-function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
-  const wanted = foodWords(query, chain);
-  const hay = haystack(chain, item);
-  if (!wanted.length) return mentionsChain(query, chain);
-  if (!wanted.every((word) => hay.includes(word))) return false;
-  if (wanted.length > 1) return true;
-  const word = wanted[0];
+/** Size words can trail a real item name ("baconator double") without hiding that item. */
+const SIZE_WORDS = new Set(["double", "triple", "single", "small", "medium", "large", "jr", "junior", "mini", "kids", "kid"]);
+
+function oneWordMatch(chain: RestaurantChain, item: RestaurantItem, word: string) {
   const labels = [item.name, ...(item.aliases ?? [])];
   if (labels.some((value) => {
     const tokens = words(value);
@@ -426,6 +423,29 @@ function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
   })) return true;
   const namesAnotherItem = chain.items.some((other) => words(other.name).length === 1 && words(other.name)[0] === word);
   return namesAnotherItem && words(item.name).includes(word);
+}
+
+function conflictsSize(item: RestaurantItem, wanted: string[]) {
+  const asked = wanted.filter((word) => SIZE_WORDS.has(word));
+  if (!asked.length) return false;
+  const present = words([item.name, ...(item.aliases ?? [])].join(" ")).filter((word) => SIZE_WORDS.has(word));
+  if (!present.length) return false;
+  return asked.some((word) => !present.includes(word));
+}
+
+function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
+  const wanted = foodWords(query, chain);
+  const hay = haystack(chain, item);
+  if (!wanted.length) return mentionsChain(query, chain);
+  const candidates = [wanted];
+  const core = wanted.filter((word) => !SIZE_WORDS.has(word));
+  if (core.length > 0 && core.length < wanted.length && !conflictsSize(item, wanted)) candidates.push(core);
+  for (const wordsOfQuery of candidates) {
+    if (!wordsOfQuery.every((word) => hay.includes(word))) continue;
+    if (wordsOfQuery.length > 1) return true;
+    if (oneWordMatch(chain, item, wordsOfQuery[0])) return true;
+  }
+  return false;
 }
 
 const PLACE_BOOST = 10000;

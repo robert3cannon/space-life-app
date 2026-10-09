@@ -126,6 +126,7 @@ describe("restaurant menus", () => {
     assert.equal(turkey[0].calories, 480);
     assert.equal(turkey.find((hit) => hit.name === "Oven-Roasted Turkey (Footlong)")?.calories, 960);
 
+    assert.equal(searchRestaurantFoods("baconator double")[0].name, "Baconator");
     assert.equal(searchRestaurantFoods("crunchwrap")[0].calories, 530);
     assert.equal(searchRestaurantFoods("whopper")[0].calories, 710);
     assert.equal(searchRestaurantFoods("popeyes chicken sandwich")[0].calories, 700);

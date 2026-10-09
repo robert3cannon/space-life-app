@@ -355,4 +355,92 @@ describe("food search", () => {
     assert.ok(miss instanceof Error);
     assert.equal((miss as { status?: number }).status, 404);
   });
+
+  it("returns a curated item with sourceType for every chain", async () => {
+    const probes: Array<[string, string, string, "official" | "third-party"]> = [
+      ["Panda Express", "broccoli beef", "Broccoli Beef", "official"],
+      ["McDonald's", "big mac", "Big Mac", "official"],
+      ["Chick-fil-A", "chick-fil-a chicken sandwich", "Chick-fil-A Chicken Sandwich", "official"],
+      ["Dairy Queen", "dairy queen chicken strips", "Chicken Strips (3 pc)", "official"],
+      ["Chipotle", "chipotle chicken", "Chicken", "official"],
+      ["Five Guys", "five guys hamburger patty", "Hamburger Patty", "official"],
+      ["Jimmy John's", "jimmy johns pepe", "The Pepe (8 inch)", "official"],
+      ["Culver's", "culver's butterburger cheese single", "ButterBurger Cheese (Single)", "official"],
+      ["Raising Cane's", "raising cane's chicken finger", "Chicken Finger", "third-party"],
+      ["Wendy's", "baconator double", "Baconator", "third-party"],
+      ["Subway", "subway oven roasted turkey", "Oven-Roasted Turkey (6 inch)", "third-party"],
+      ["Taco Bell", "crunchwrap", "Crunchwrap Supreme", "third-party"],
+      ["Burger King", "whopper", "Whopper", "third-party"],
+      ["Popeyes", "popeyes chicken sandwich", "Chicken Sandwich (Classic)", "third-party"],
+      ["Starbucks", "starbucks latte grande", "Caffè Latte (2% milk) (Grande)", "third-party"],
+    ];
+    assert.equal(new Set(probes.map((probe) => probe[0])).size, RESTAURANT_CHAINS.length);
+    setFoodCatalogFetch(async (input) => {
+      const url = String(input);
+      if (url.includes("nal.usda.gov")) {
+        return jsonResponse({
+          foods: [{
+            fdcId: 99,
+            description: "Generic restaurant beef",
+            dataType: "Survey (FNDDS)",
+            foodNutrients: [
+              { nutrientId: 1008, value: 200 },
+              { nutrientId: 1003, value: 10 },
+              { nutrientId: 1005, value: 10 },
+              { nutrientId: 1004, value: 10 },
+            ],
+            foodMeasures: [{ disseminationText: "1 serving", gramWeight: 100, rank: 1 }],
+          }],
+        });
+      }
+      return jsonResponse({ products: [] });
+    });
+
+    for (const [brand, query, name, sourceType] of probes) {
+      const response = await botSearch(
+        new Request(`http://localhost/api/bot/food/search?q=${encodeURIComponent(query)}`, {
+          headers: { authorization: "Bearer test-bot-token-value" },
+        }),
+        ctx,
+      );
+      assert.equal(response.status, 200);
+      const body = (await response.json()) as { foods: FoodHit[] };
+      const first = body.foods[0];
+      assert.equal(first.brand, brand, query);
+      assert.equal(first.name, name, query);
+      assert.equal(first.source, "restaurant", query);
+      assert.equal(first.sourceType, sourceType, query);
+      const keys = Object.keys(JSON.parse(JSON.stringify(first)) as object);
+      assert.ok(keys.includes("sourceType"), query);
+    }
+
+    const staleQueries = ["caniac", "frosty", "chicken finger cane", "wendy's baconator"];
+    for (const query of staleQueries) {
+      const response = await botSearch(
+        new Request(`http://localhost/api/bot/food/search?q=${encodeURIComponent(query)}`, {
+          headers: { authorization: "Bearer test-bot-token-value" },
+        }),
+        ctx,
+      );
+      const body = (await response.json()) as { foods: FoodHit[] };
+      assert.equal(body.foods[0].source, "restaurant", query);
+      assert.ok(body.foods[0].sourceType, query);
+    }
+
+    await getSql()`
+      update food_cache
+      set payload = jsonb_build_array((payload -> 0) - 'sourceType')
+      where cache_key like '%caniac%'
+    `;
+    setFoodCatalogFetch(async () => jsonResponse({ foods: [], products: [] }));
+    const refreshed = await botSearch(
+      new Request("http://localhost/api/bot/food/search?q=caniac", {
+        headers: { authorization: "Bearer test-bot-token-value" },
+      }),
+      ctx,
+    );
+    const again = (await refreshed.json()) as { foods: FoodHit[] };
+    assert.equal(again.foods[0].name, "Caniac Combo");
+    assert.equal(again.foods[0].sourceType, "third-party");
+  });
 });
