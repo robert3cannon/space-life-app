@@ -13,6 +13,7 @@ export const chickFilA: RestaurantChain = {
   name: "Chick-fil-A",
   sourceUrl: "https://www.chick-fil-a.com/nutrition-allergens",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["chick-fil-a", "chickfila", "cfa", "chick"],
   items: [
     food("chicken-sandwich", "Chick-fil-A Chicken Sandwich", [servingFromGrams(183, 420, 16, 41, 29)], ["chicken sandwich", "original chicken sandwich"]),

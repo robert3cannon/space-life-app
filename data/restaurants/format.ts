@@ -1,4 +1,4 @@
-import type { RestaurantItem, RestaurantServing } from "./types";
+import type { NutritionSource, RestaurantItem, RestaurantServing } from "./types";
 
 export function serving(
   ounces: number,
@@ -66,6 +66,9 @@ export function food(
   name: string,
   servings: RestaurantServing[],
   aliases?: string[],
+  sourceType: NutritionSource = "official",
 ): RestaurantItem {
-  return aliases?.length ? { id, name, aliases, servings } : { id, name, servings };
+  const item: RestaurantItem = { id, name, servings, sourceType };
+  if (aliases?.length) item.aliases = aliases;
+  return item;
 }

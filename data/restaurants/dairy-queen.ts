@@ -25,6 +25,7 @@ export const dairyQueen: RestaurantChain = {
   name: "Dairy Queen",
   sourceUrl: "https://www.dairyqueen.com/en-us/nutrition/food-treats/",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["dairy", "queen", "dq", "dairyqueen"],
   orderNote: NOTE,
   items: [

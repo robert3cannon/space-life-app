@@ -23,6 +23,8 @@ export type FoodHit = {
   fatG: number;
   generic?: boolean;
   note?: string;
+  /** Set on curated restaurant items. Official chain data ranks above third-party estimates. */
+  sourceType?: "official" | "third-party";
 };
 
 export type UsdaSearchFood = {

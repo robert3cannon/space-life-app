@@ -252,6 +252,8 @@ a.chip { color: var(--text); text-decoration: none; }
 .pill[data-type="study"] { color: #e4dcff; background: rgba(196, 181, 253, 0.14); }
 .pill[data-type="workout"] { color: #ffd0ef; background: rgba(255, 138, 212, 0.16); }
 .pill[data-type="meal"] { color: #ffe1ad; background: rgba(255, 197, 109, 0.16); }
+.pill[data-type="verified"] { color: #c8f5d4; background: rgba(120, 210, 150, 0.16); }
+.pill[data-type="est"] { color: var(--muted); background: rgba(255, 255, 255, 0.06); }
 .pill[data-type="other"] { color: var(--muted); }
 .pill[data-type="event"], .pill[data-type="custom"] { color: #d5ccff; background: rgba(155, 140, 255, 0.18); }
 .pill[data-type="meal-kind"] { color: #ffe1ad; background: rgba(255, 197, 109, 0.16); }

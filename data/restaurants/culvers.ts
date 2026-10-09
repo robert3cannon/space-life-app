@@ -13,6 +13,7 @@ export const culvers: RestaurantChain = {
   name: "Culver's",
   sourceUrl: "https://cdn.culvers.com/menu/docs/guide-nutrition-allergen.pdf",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["culvers", "culver's", "culver"],
   items: [
     food("butterburger-single", "ButterBurger (Single)", [listed("Single", 390, 17, 38, 20)], ["butterburger", "burger"]),

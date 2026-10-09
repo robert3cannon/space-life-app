@@ -14,15 +14,27 @@ describe("restaurant menus", () => {
       "Five Guys": 43,
       "Jimmy John's": 72,
       "Culver's": 26,
+      "Raising Cane's": 17,
+      "Wendy's": 21,
+      Subway: 60,
+      "Taco Bell": 17,
+      "Burger King": 17,
+      Popeyes: 14,
+      Starbucks: 47,
     });
     for (const chain of RESTAURANT_CHAINS) {
       assert.match(chain.sourceUrl, /^https:\/\//);
-      assert.equal(chain.verifiedOn, "2026-10-08");
+      assert.match(chain.verifiedOn, /^2026-10-0[89]$/);
       assert.ok(chain.items.length > 0);
+      assert.ok(chain.items.every((item) => item.sourceType === chain.sourceType));
       const hits = searchRestaurantFoods(chain.name);
       assert.equal(hits.length, chain.items.length);
-      assert.ok(hits.every((hit) => hit.brand === chain.name && restaurantServingMatchesLabel(hit)));
+      assert.ok(hits.every((hit) => hit.brand === chain.name && hit.sourceType === chain.sourceType && restaurantServingMatchesLabel(hit)));
     }
+    const official = RESTAURANT_CHAINS.filter((chain) => chain.sourceType === "official").map((chain) => chain.name);
+    const estimated = RESTAURANT_CHAINS.filter((chain) => chain.sourceType === "third-party").map((chain) => chain.name);
+    assert.deepEqual(estimated, ["Raising Cane's", "Wendy's", "Subway", "Taco Bell", "Burger King", "Popeyes", "Starbucks"]);
+    assert.ok(official.includes("Panda Express") && official.includes("McDonald's"));
   });
 
   it("stores Chipotle build components, including count tortillas", () => {
@@ -89,5 +101,37 @@ describe("restaurant menus", () => {
     assert.equal(strips.name, "Chicken Strips (3 pc)");
     assert.equal(strips.calories, 430);
     assert.equal(searchRestaurantFoods("dq chicken strip basket")[0].calories, 1020);
+  });
+
+  it("stores third-party menus and ranks official items ahead of them", () => {
+    const finger = searchRestaurantFoods("canes chicken finger")[0];
+    assert.equal(finger.brand, "Raising Cane's");
+    assert.equal(finger.sourceType, "third-party");
+    assert.equal(finger.calories, 130);
+    assert.equal(finger.proteinG, 13);
+    assert.equal(finger.servings[0].grams, 55);
+    assert.equal(searchRestaurantFoods("canes sauce")[0].calories, 190);
+
+    const fries = searchRestaurantFoods("fries", "Wendy's");
+    assert.equal(fries[0].brand, "Wendy's");
+    assert.equal(fries[0].name, "Natural-Cut Fries (Small)");
+    assert.equal(fries[0].calories, 260);
+    assert.equal(fries[0].sourceType, "third-party");
+    const unscoped = searchRestaurantFoods("fries");
+    assert.equal(unscoped[0].sourceType, "official");
+    assert.ok(unscoped.some((hit) => hit.brand === "Wendy's"));
+
+    const turkey = searchRestaurantFoods("subway oven roasted turkey");
+    assert.equal(turkey[0].name, "Oven-Roasted Turkey (6 inch)");
+    assert.equal(turkey[0].calories, 480);
+    assert.equal(turkey.find((hit) => hit.name === "Oven-Roasted Turkey (Footlong)")?.calories, 960);
+
+    assert.equal(searchRestaurantFoods("crunchwrap")[0].calories, 530);
+    assert.equal(searchRestaurantFoods("whopper")[0].calories, 710);
+    assert.equal(searchRestaurantFoods("popeyes chicken sandwich")[0].calories, 700);
+    const latte = searchRestaurantFoods("starbucks latte grande")[0];
+    assert.equal(latte.name, "Caffè Latte (2% milk) (Grande)");
+    assert.equal(latte.calories, 190);
+    assert.equal(searchRestaurantFoods("panda orange chicken")[0].sourceType, "official");
   });
 });

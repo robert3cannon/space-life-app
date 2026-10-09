@@ -1,0 +1,83 @@
+import type { RestaurantChain } from "./types";
+import { food, servingFromGrams } from "./format";
+
+/**
+ * Third-party. A September 2025 U.S. nutrition chart, checked 2026-10-09.
+ * https://subwaymenuus.com/wp-content/uploads/2026/02/Subway-Nutrition-PDF.pdf
+ * The chart says a footlong is two 6-inch servings, so footlong rows are exactly double.
+ * Steak Philly (510), Subway Club (500), and Sweet Onion Teriyaki calories match
+ * https://www.nutritionix.com/subway/menu/premium.
+ * The official January 2026 PDF on media.subway.com timed out.
+ * Cheese and sauce rows are the amount on a 6-inch sandwich.
+ */
+export const subway: RestaurantChain = {
+  id: "subway",
+  name: "Subway",
+  sourceUrl: "https://subwaymenuus.com/wp-content/uploads/2026/02/Subway-Nutrition-PDF.pdf",
+  verifiedOn: "2026-10-09",
+  sourceType: "third-party",
+  chainTokens: ["subway"],
+  orderNote: "Footlong nutrition is two 6-inch servings. Cheese and sauce rows are the 6-inch amount.",
+  items: [
+    food("steak-philly-6", "Steak Philly (6 inch)", [servingFromGrams(192, 510, 25, 43, 28, "6 inch")], ["philly", "6 inch"], "third-party"),
+    food("steak-philly-12", "Steak Philly (Footlong)", [servingFromGrams(384, 1020, 50, 86, 56, "Footlong")], ["philly", "footlong"], "third-party"),
+    food("chipotle-philly-6", "Chipotle Philly (6 inch)", [servingFromGrams(198, 490, 22, 44, 30, "6 inch")], ["philly", "6 inch"], "third-party"),
+    food("chipotle-philly-12", "Chipotle Philly (Footlong)", [servingFromGrams(396, 980, 44, 88, 60, "Footlong")], ["philly", "footlong"], "third-party"),
+    food("cheesy-garlic-steak-6", "Cheesy Garlic Steak (6 inch)", [servingFromGrams(199, 510, 23, 49, 26, "6 inch")], ["garlic steak", "6 inch"], "third-party"),
+    food("cheesy-garlic-steak-12", "Cheesy Garlic Steak (Footlong)", [servingFromGrams(398, 1020, 46, 98, 52, "Footlong")], ["garlic steak", "footlong"], "third-party"),
+    food("grilled-chicken-6", "Grilled Chicken (6 inch)", [servingFromGrams(247, 510, 24, 43, 31, "6 inch")], ["chicken", "6 inch"], "third-party"),
+    food("grilled-chicken-12", "Grilled Chicken (Footlong)", [servingFromGrams(494, 1020, 48, 86, 62, "Footlong")], ["chicken", "footlong"], "third-party"),
+    food("chicken-bacon-ranch-6", "Chicken & Bacon Ranch (6 inch)", [servingFromGrams(262, 580, 29, 44, 35, "6 inch")], ["chicken bacon ranch", "6 inch"], "third-party"),
+    food("chicken-bacon-ranch-12", "Chicken & Bacon Ranch (Footlong)", [servingFromGrams(524, 1160, 58, 88, 70, "Footlong")], ["chicken bacon ranch", "footlong"], "third-party"),
+    food("spicy-nacho-chicken-6", "Spicy Nacho Chicken (6 inch)", [servingFromGrams(203, 440, 17, 49, 24, "6 inch")], ["nacho chicken", "6 inch"], "third-party"),
+    food("spicy-nacho-chicken-12", "Spicy Nacho Chicken (Footlong)", [servingFromGrams(406, 880, 34, 98, 48, "Footlong")], ["nacho chicken", "footlong"], "third-party"),
+    food("honey-mustard-bbq-6", "Honey Mustard BBQ Chicken (6 inch)", [servingFromGrams(273, 510, 20, 53, 30, "6 inch")], ["bbq chicken", "6 inch"], "third-party"),
+    food("honey-mustard-bbq-12", "Honey Mustard BBQ Chicken (Footlong)", [servingFromGrams(546, 1020, 40, 106, 60, "Footlong")], ["bbq chicken", "footlong"], "third-party"),
+    food("sweet-onion-6", "Sweet Onion Teriyaki Chicken (6 inch)", [servingFromGrams(256, 430, 11, 55, 29, "6 inch")], ["sweet onion", "teriyaki", "6 inch"], "third-party"),
+    food("sweet-onion-12", "Sweet Onion Teriyaki Chicken (Footlong)", [servingFromGrams(512, 860, 22, 110, 58, "Footlong")], ["sweet onion", "teriyaki", "footlong"], "third-party"),
+    food("bmt-6", "B.M.T. (6 inch)", [servingFromGrams(240, 610, 36, 44, 27, "6 inch")], ["bmt", "italian bmt", "6 inch"], "third-party"),
+    food("bmt-12", "B.M.T. (Footlong)", [servingFromGrams(480, 1220, 72, 88, 54, "Footlong")], ["bmt", "italian bmt", "footlong"], "third-party"),
+    food("spicy-italian-6", "Spicy Italian (6 inch)", [servingFromGrams(239, 680, 44, 44, 27, "6 inch")], ["spicy italian", "6 inch"], "third-party"),
+    food("spicy-italian-12", "Spicy Italian (Footlong)", [servingFromGrams(478, 1360, 88, 88, 54, "Footlong")], ["spicy italian", "footlong"], "third-party"),
+    food("five-meat-6", "5 Meat Italian (6 inch)", [servingFromGrams(303, 680, 37, 46, 40, "6 inch")], ["five meat", "6 inch"], "third-party"),
+    food("five-meat-12", "5 Meat Italian (Footlong)", [servingFromGrams(606, 1360, 74, 92, 80, "Footlong")], ["five meat", "footlong"], "third-party"),
+    food("meatball-6", "Meatball Marinara (6 inch)", [servingFromGrams(239, 570, 28, 53, 27, "6 inch")], ["meatball", "6 inch"], "third-party"),
+    food("meatball-12", "Meatball Marinara (Footlong)", [servingFromGrams(478, 1140, 56, 106, 54, "Footlong")], ["meatball", "footlong"], "third-party"),
+    food("meatball-pepperoni-6", "Meatball Pepperoni (6 inch)", [servingFromGrams(268, 690, 38, 56, 33, "6 inch")], ["meatball pepperoni", "6 inch"], "third-party"),
+    food("meatball-pepperoni-12", "Meatball Pepperoni (Footlong)", [servingFromGrams(536, 1380, 76, 112, 66, "Footlong")], ["meatball pepperoni", "footlong"], "third-party"),
+    food("turkey-6", "Oven-Roasted Turkey (6 inch)", [servingFromGrams(233, 480, 23, 42, 26, "6 inch")], ["turkey", "6 inch"], "third-party"),
+    food("turkey-12", "Oven-Roasted Turkey (Footlong)", [servingFromGrams(466, 960, 46, 84, 52, "Footlong")], ["turkey", "footlong"], "third-party"),
+    food("ham-6", "Black Forest Ham (6 inch)", [servingFromGrams(233, 490, 23, 44, 25, "6 inch")], ["ham", "6 inch"], "third-party"),
+    food("ham-12", "Black Forest Ham (Footlong)", [servingFromGrams(466, 980, 46, 88, 50, "Footlong")], ["ham", "footlong"], "third-party"),
+    food("roast-beef-6", "Roast Beef (6 inch)", [servingFromGrams(247, 500, 23, 44, 31, "6 inch")], ["roast beef", "6 inch"], "third-party"),
+    food("roast-beef-12", "Roast Beef (Footlong)", [servingFromGrams(494, 1000, 46, 88, 62, "Footlong")], ["roast beef", "footlong"], "third-party"),
+    food("cold-cut-6", "Cold Cut Combo (6 inch)", [servingFromGrams(240, 530, 29, 43, 25, "6 inch")], ["cold cut", "6 inch"], "third-party"),
+    food("cold-cut-12", "Cold Cut Combo (Footlong)", [servingFromGrams(480, 1060, 58, 86, 50, "Footlong")], ["cold cut", "footlong"], "third-party"),
+    food("tuna-6", "Tuna (6 inch)", [servingFromGrams(236, 570, 33, 42, 27, "6 inch")], ["tuna", "6 inch"], "third-party"),
+    food("tuna-12", "Tuna (Footlong)", [servingFromGrams(472, 1140, 66, 84, 54, "Footlong")], ["tuna", "footlong"], "third-party"),
+    food("veggie-6", "Veggie Delite (6 inch)", [servingFromGrams(191, 320, 10, 41, 17, "6 inch")], ["veggie", "veggie delite", "6 inch"], "third-party"),
+    food("veggie-12", "Veggie Delite (Footlong)", [servingFromGrams(382, 640, 20, 82, 34, "Footlong")], ["veggie", "veggie delite", "footlong"], "third-party"),
+    food("all-american-6", "All American Club (6 inch)", [servingFromGrams(242, 540, 28, 45, 27, "6 inch")], ["all american", "6 inch"], "third-party"),
+    food("all-american-12", "All American Club (Footlong)", [servingFromGrams(484, 1080, 56, 90, 54, "Footlong")], ["all american", "footlong"], "third-party"),
+    food("subway-club-6", "Subway Club (6 inch)", [servingFromGrams(263, 500, 24, 43, 31, "6 inch")], ["subway club", "club", "6 inch"], "third-party"),
+    food("subway-club-12", "Subway Club (Footlong)", [servingFromGrams(526, 1000, 48, 86, 62, "Footlong")], ["subway club", "club", "footlong"], "third-party"),
+    food("bread-italian", "Artisan Italian Bread (6 inch)", [servingFromGrams(71, 210, 2, 39, 8, "71 g")], ["bread", "italian bread"], "third-party"),
+    food("bread-multigrain", "Hearty Multigrain Bread (6 inch)", [servingFromGrams(71, 200, 3, 36, 9, "71 g")], ["bread", "multigrain"], "third-party"),
+    food("bread-herbs-cheese", "Italian Herbs & Cheese Bread (6 inch)", [servingFromGrams(82, 250, 5, 42, 10, "82 g")], ["bread", "herbs and cheese"], "third-party"),
+    food("wrap", "Wrap", [servingFromGrams(102, 300, 8, 50, 8, "102 g")], ["wrap"], "third-party"),
+    food("cheese-american", "American Cheese", [servingFromGrams(23, 80, 7, 1, 4, "23 g")], ["american", "cheese"], "third-party"),
+    food("cheese-monterey", "Monterey Cheddar", [servingFromGrams(28, 110, 9, 1, 7, "28 g")], ["monterey", "cheese"], "third-party"),
+    food("cheese-pepper-jack", "Pepper Jack", [servingFromGrams(28, 100, 8, 1, 5, "28 g")], ["pepper jack", "cheese"], "third-party"),
+    food("cheese-provolone", "Provolone", [servingFromGrams(25, 90, 7, 1, 6, "25 g")], ["provolone", "cheese"], "third-party"),
+    food("mayo", "Mayonnaise", [servingFromGrams(14, 100, 11, 0, 0, "14 g")], ["mayo", "mayonnaise"], "third-party"),
+    food("mustard", "Yellow Mustard", [servingFromGrams(14, 10, 1, 1, 0, "14 g")], ["mustard"], "third-party"),
+    food("sweet-onion-sauce", "Sweet Onion Teriyaki Sauce", [servingFromGrams(14, 30, 0, 7, 0, "14 g")], ["sweet onion sauce"], "third-party"),
+    food("ranch", "Peppercorn Ranch", [servingFromGrams(14, 80, 8, 1, 0, "14 g")], ["ranch"], "third-party"),
+    food("baja-chipotle", "Baja Chipotle Sauce", [servingFromGrams(14, 70, 7, 1, 0, "14 g")], ["baja chipotle", "chipotle sauce"], "third-party"),
+    food("bbq", "BBQ Sauce", [servingFromGrams(14, 25, 0, 6, 0, "14 g")], ["bbq", "barbecue sauce"], "third-party"),
+    food("honey-mustard", "Honey Mustard", [servingFromGrams(14, 60, 5, 3, 0, "14 g")], ["honey mustard"], "third-party"),
+    food("oil-vinegar", "Olive Oil Blend & Vinegar", [servingFromGrams(9, 45, 5, 0, 0, "9 g")], ["oil and vinegar"], "third-party"),
+    food("parmesan-vinaigrette", "MVP Parmesan Vinaigrette", [servingFromGrams(14, 60, 6, 1, 0, "14 g")], ["vinaigrette"], "third-party"),
+    food("garlic-aioli", "Roasted Garlic Aioli", [servingFromGrams(14, 80, 9, 1, 0, "14 g")], ["aioli", "garlic aioli"], "third-party"),
+  ],
+};

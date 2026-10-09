@@ -13,6 +13,7 @@ export const jimmyJohns: RestaurantChain = {
   name: "Jimmy John's",
   sourceUrl: "https://resources.jimmyjohns.com/downloadable-files/NutritionGuide.pdf",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["jimmy", "johns", "jj", "jimmyjohns"],
   items: [
     food("little-john-1", "Little John 1", [listed("Little John", 300, 15, 25, 15)], ["little john 1"]),

@@ -17,6 +17,7 @@ export const fiveGuys: RestaurantChain = {
   name: "Five Guys",
   sourceUrl: "https://www.fiveguys.com/wp-content/uploads/2026/09/Five-Guys-US-Nutrition-Allergen-Guide-English-September-2026.pdf",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["five", "guys", "fiveguys"],
   orderNote: NOTE,
   items: [

@@ -140,7 +140,7 @@ export async function searchFoods(query: string, limit = 8, place?: string): Pro
   if (q.length < 2 || q.length > 80) throw new HttpError("Enter at least 2 characters", 400);
   const safeLimit = Math.min(15, Math.max(1, limit));
   const placeKey = (place ?? "").trim().toLowerCase();
-  const key = `search:v6:${placeKey}:${q.toLowerCase()}`;
+  const key = `search:v7:${placeKey}:${q.toLowerCase()}`;
   const cached = await readCache<FoodHit[]>(key);
   if (cached.hit) return cached.value.slice(0, safeLimit);
 

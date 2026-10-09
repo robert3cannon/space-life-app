@@ -347,6 +347,11 @@ export function MealLogger({
                     <strong>
                       {hit.name}
                       {hit.brand ? <em className="pill" data-type="meal">{hit.brand}</em> : null}
+                      {hit.source === "restaurant" ? (
+                        <em className="pill" data-type={hit.sourceType === "third-party" ? "est" : "verified"} data-testid="nutrition-source">
+                          {hit.sourceType === "third-party" ? "Est." : "Verified"}
+                        </em>
+                      ) : null}
                     </strong>
                     <span>{hit.source === "usda" ? "USDA" : hit.source === "restaurant" ? "Restaurant" : "Open Food Facts"} · {hit.servings[0]?.label}</span>
                     {hit.note ? <span className="food-note">{hit.note}</span> : null}

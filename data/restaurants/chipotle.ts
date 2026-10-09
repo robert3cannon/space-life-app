@@ -16,6 +16,7 @@ export const chipotle: RestaurantChain = {
   name: "Chipotle",
   sourceUrl: "https://www.chipotle.com/content/dam/chipotle/menu/nutrition/US-Nutrition-Facts-Paper-Menu-3-2025.pdf",
   verifiedOn: "2026-10-08",
+  sourceType: "official",
   chainTokens: ["chipotle"],
   orderNote: NOTE,
   items: [

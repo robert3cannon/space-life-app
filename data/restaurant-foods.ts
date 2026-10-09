@@ -5,6 +5,13 @@ import { culvers } from "./restaurants/culvers";
 import { dairyQueen } from "./restaurants/dairy-queen";
 import { fiveGuys } from "./restaurants/five-guys";
 import { jimmyJohns } from "./restaurants/jimmy-johns";
+import { burgerKing } from "./restaurants/burger-king";
+import { popeyes } from "./restaurants/popeyes";
+import { raisingCanes } from "./restaurants/raising-canes";
+import { starbucks } from "./restaurants/starbucks";
+import { subway } from "./restaurants/subway";
+import { tacoBell } from "./restaurants/taco-bell";
+import { wendys } from "./restaurants/wendys";
 import type { RestaurantChain, RestaurantItem, RestaurantServing } from "./restaurants/types";
 
 export type { RestaurantChain, RestaurantItem, RestaurantServing };
@@ -92,6 +99,7 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
     name: "Panda Express",
     sourceUrl: "https://www.pandaexpress.com/nutritioninformation",
     verifiedOn: "2026-10-08",
+    sourceType: "official",
     chainTokens: ["panda", "express"],
     orderNote: PANDA_NOTE,
     items: [
@@ -200,6 +208,7 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
     name: "McDonald's",
     sourceUrl: "https://www.mcdonalds.com/us/en-us/about-our-food/nutrition-calculator.html",
     verifiedOn: "2026-10-08",
+    sourceType: "official",
     chainTokens: ["mcdonalds", "mcdonald", "mcdonald's", "mcd"],
     items: [
       {
@@ -318,7 +327,22 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
   fiveGuys,
   jimmyJohns,
   culvers,
-];
+  raisingCanes,
+  wendys,
+  subway,
+  tacoBell,
+  burgerKing,
+  popeyes,
+  starbucks,
+].map(stampItemSource);
+
+/** Panda Express and McDonald's list items inline. Each item carries the chain's source. */
+function stampItemSource(chain: RestaurantChain): RestaurantChain {
+  return {
+    ...chain,
+    items: chain.items.map((item) => ({ ...item, sourceType: item.sourceType ?? chain.sourceType })),
+  };
+}
 
 function per100g(serving: RestaurantServing): FoodNutrients {
   if (!serving.grams) {
@@ -356,6 +380,7 @@ function toHit(chain: RestaurantChain, item: RestaurantItem): FoodHit {
     carbsG: first.carbsG,
     fatG: first.fatG,
     note: chain.orderNote,
+    sourceType: item.sourceType,
   };
 }
 
@@ -402,6 +427,7 @@ function matches(chain: RestaurantChain, item: RestaurantItem, query: string) {
 }
 
 const PLACE_BOOST = 10000;
+const OFFICIAL_BOOST = 1000;
 
 function placeMatches(chain: RestaurantChain, place: string) {
   const value = place.trim().toLowerCase();
@@ -419,6 +445,7 @@ function score(chain: RestaurantChain, item: RestaurantItem, query: string, plac
   if (wanted && name === wanted) value += 500;
   else if (wanted && name.startsWith(wanted)) value += 200;
   else if (wanted && name.includes(wanted)) value += 100;
+  if (item.sourceType !== "third-party") value += OFFICIAL_BOOST;
   if (place && placeMatches(chain, place)) value += PLACE_BOOST;
   return value;
 }
