@@ -93,8 +93,18 @@ function servingFromGrams(
   };
 }
 
+/** Panda Express and McDonald's list items inline. Each item carries the chain's source. */
+function officialMenu(
+  chain: Omit<RestaurantChain, "items"> & { items: Array<Omit<RestaurantItem, "sourceType">> },
+): RestaurantChain {
+  return {
+    ...chain,
+    items: chain.items.map((item) => ({ ...item, sourceType: chain.sourceType })),
+  };
+}
+
 export const RESTAURANT_CHAINS: RestaurantChain[] = [
-  {
+  officialMenu({
     id: "panda-express",
     name: "Panda Express",
     sourceUrl: "https://www.pandaexpress.com/nutritioninformation",
@@ -202,8 +212,8 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
         servings: [serving(2.4, 190, 8, 24, 5, "3 pieces")],
       },
     ],
-  },
-  {
+  }),
+  officialMenu({
     id: "mcdonalds",
     name: "McDonald's",
     sourceUrl: "https://www.mcdonalds.com/us/en-us/about-our-food/nutrition-calculator.html",
@@ -320,7 +330,7 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
         servings: [servingFromGrams(58, 140, 8, 18, 2)],
       },
     ],
-  },
+  }),
   chickFilA,
   dairyQueen,
   chipotle,
@@ -334,15 +344,7 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
   burgerKing,
   popeyes,
   starbucks,
-].map(stampItemSource);
-
-/** Panda Express and McDonald's list items inline. Each item carries the chain's source. */
-function stampItemSource(chain: RestaurantChain): RestaurantChain {
-  return {
-    ...chain,
-    items: chain.items.map((item) => ({ ...item, sourceType: item.sourceType ?? chain.sourceType })),
-  };
-}
+];
 
 function per100g(serving: RestaurantServing): FoodNutrients {
   if (!serving.grams) {
