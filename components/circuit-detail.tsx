@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { muscleLabel } from "@/lib/muscles";
 import { getZonedParts } from "@/lib/time";
 import { BodyMap } from "./body-map";
+import { RatingDots } from "./rating-dots";
 import { unlockCue } from "./circuit-cue";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
@@ -33,6 +34,7 @@ type Detail = {
   restSeconds: Record<Level, { exercise: number; round: number }>;
   primary: string[];
   secondary: string[];
+  targetRating?: { average: number; muscle: string | null } | null;
   stations: Station[];
 };
 
@@ -104,6 +106,15 @@ export function CircuitDetail({ id }: { id: string }) {
             {data.primary.map(muscleLabel).join(", ")}
             {data.secondary.length ? ` · also ${data.secondary.map(muscleLabel).join(", ")}` : ""}
           </p>
+          {data.targetRating ? (
+            <p className="rating-line">
+              <RatingDots score={data.targetRating.average} label={`Average ${data.targetRating.average} out of 5`} />
+              <span className="faint">
+                Avg {data.targetRating.average.toFixed(1)}
+                {data.targetRating.muscle ? ` · ${muscleLabel(data.targetRating.muscle)}` : " · target muscles"}
+              </span>
+            </p>
+          ) : null}
           <div className="chips" style={{ marginTop: 14 }} role="group" aria-label="Difficulty">
             {(["beginner", "intermediate"] as Level[]).map((value) => (
               <button key={value} type="button" className={`chip ${level === value ? "on" : ""}`} onClick={() => chooseLevel(value)}>

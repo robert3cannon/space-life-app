@@ -691,6 +691,32 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .spread .display { margin: 0; min-width: 0; }
 .mark { width: 72px; height: 72px; }
 
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.rating span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+.rating span.on {
+  background: linear-gradient(180deg, #7ae7ff, #9b8cff);
+  box-shadow: 0 0 6px rgba(122, 231, 255, 0.65);
+}
+.rating-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.muscle-ratings { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.muscle-ratings li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.muscle-ratings p { flex: 1 0 100%; margin: 0; }
+
 .pill[data-type="water"] { color: #bff6ff; background: rgba(122, 239, 255, 0.14); }
 .pill[data-type="sleep"] { color: #d5ccff; background: rgba(155, 140, 255, 0.18); }
 .pill[data-type="habit"] { color: #ffe1ad; background: rgba(255, 197, 109, 0.16); }

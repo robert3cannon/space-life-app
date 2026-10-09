@@ -404,13 +404,13 @@ PATCH accepts any of: normal fields, `exercises` (replaces the list), `status` (
 | GET | `/api/bot/exercises` | Catalog. Optional `q`, `muscle`, `equipment`, `limit` (1–200, default 40) |
 | GET | `/api/bot/exercises/:id` | One exercise, with steps, mistakes, and image URLs |
 
-`muscle` matches primary or secondary. Primary hits are listed first. `equipment` is `bodyweight`, `dumbbell`, `barbell`, `machine`, `cable`, or `other`. The list follows the home equipment profile in settings: bodyweight (also when the push-up board is owned) and dumbbells. Gear you do not own returns an empty list. Add `all=1` to see the full catalog. A push-up detail includes `board` (blue chest, red shoulders, yellow back, green triceps) when the board is owned.
+`muscle` matches primary or secondary. With a muscle, the list is best-first by that muscle's 1–5 rating (`sort=rating` does the same and requires `muscle`; `sort=name` stays alphabetical). Each exercise includes `ratings`, keyed by muscle id, with `score` (1–5) and `why` (one line). 5 is a top-tier movement for that muscle and 1 is minimal involvement. Scores describe the exercise, not the home gym, so a barbell bench stays a 5 for the chest even when the profile has no barbell. `equipment` is `bodyweight`, `dumbbell`, `barbell`, `machine`, `cable`, or `other`. The list follows the home equipment profile in settings: bodyweight (also when the push-up board is owned) and dumbbells. Gear you do not own returns an empty list. Add `all=1` to see the full catalog. A push-up detail includes `board` (blue chest, red shoulders, yellow back, green triceps) when the board is owned. Circuit lists include `targetRating` (`average` and `muscle`) for the circuit's target muscles.
 
 Muscle ids: `upper_abs`, `lower_abs`, `obliques`, `biceps`, `triceps`, `forearms`, `front_delts`, `side_delts`, `rear_delts`, `upper_chest`, `mid_chest`, `lower_chest`, `lats`, `traps`, `mid_back`, `lower_back`, `glutes`, `quads`, `hamstrings`, `calves`, `adductors`, `abductors`, `hip_flexors`.
 
 ```bash
 curl -sS -H "Authorization: Bearer $BOT_API_TOKEN" \
-  "$BASE/api/bot/exercises?muscle=lower_abs"
+  "$BASE/api/bot/exercises?muscle=lower_abs&sort=rating"
 
 curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
   -H "Content-Type: application/json" \

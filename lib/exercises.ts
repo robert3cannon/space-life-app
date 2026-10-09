@@ -5,6 +5,8 @@ import { MUSCLE_IDS, isMuscleId, type MuscleId } from "./muscles";
 export const EQUIPMENT = ["bodyweight", "dumbbell", "barbell", "machine", "cable", "other"] as const;
 export type Equipment = (typeof EQUIPMENT)[number];
 
+export type MuscleRating = { score: number; why: string };
+
 export type CatalogExercise = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export type CatalogExercise = {
   category: string;
   primary: MuscleId[];
   secondary: MuscleId[];
+  /** 1–5 for each muscle in primary and secondary. 5 is top-tier for that muscle. */
+  ratings: Record<string, MuscleRating>;
   steps: string[];
   mistakes: string[];
   images: string[];
@@ -32,7 +36,7 @@ type CatalogFile = {
   exercises: CatalogExercise[];
 };
 
-const file = catalog as CatalogFile;
+const file = catalog as unknown as CatalogFile;
 
 export const EXERCISE_SOURCE = file.source;
 export const EXERCISES: CatalogExercise[] = file.exercises;
@@ -78,7 +82,13 @@ export type ExerciseQuery = {
   muscle?: string;
   equipment?: string;
   limit?: number;
+  /** `rating` needs `muscle` and lists the best stimulus first. `name` is alphabetical. */
+  sort?: string;
 };
+
+export function ratingFor(exercise: CatalogExercise, muscle: string) {
+  return exercise.ratings[muscle] ?? null;
+}
 
 export function searchExercises(query: ExerciseQuery) {
   const muscle = query.muscle && isMuscleId(query.muscle) ? query.muscle : undefined;
@@ -87,6 +97,12 @@ export function searchExercises(query: ExerciseQuery) {
   }
   if (query.equipment && !isEquipment(query.equipment)) {
     throw new HttpError(`Unknown equipment. Use ${EQUIPMENT.join(", ")}`, 400);
+  }
+  if (query.sort && query.sort !== "rating" && query.sort !== "name") {
+    throw new HttpError("sort must be rating or name", 400);
+  }
+  if (query.sort === "rating" && !muscle) {
+    throw new HttpError("sort=rating needs a muscle", 400);
   }
   const needle = query.q ? normalizeExerciseName(query.q) : "";
   let rows = EXERCISES;
@@ -100,8 +116,11 @@ export function searchExercises(query: ExerciseQuery) {
       return exercise.aliases.some((alias) => normalizeExerciseName(alias).includes(needle));
     });
   }
+  const sort = query.sort ?? (muscle ? "rating" : "name");
   const ranked = [...rows].sort((a, b) => {
-    if (muscle) {
+    if (sort === "rating" && muscle) {
+      const diff = (b.ratings[muscle]?.score ?? 0) - (a.ratings[muscle]?.score ?? 0);
+      if (diff !== 0) return diff;
       const aPrimary = a.primary.includes(muscle) ? 0 : 1;
       const bPrimary = b.primary.includes(muscle) ? 0 : 1;
       if (aPrimary !== bPrimary) return aPrimary - bPrimary;
@@ -121,6 +140,7 @@ export function listExercise(exercise: CatalogExercise) {
     mechanic: exercise.mechanic,
     primary: exercise.primary,
     secondary: exercise.secondary,
+    ratings: exercise.ratings,
   };
 }
 

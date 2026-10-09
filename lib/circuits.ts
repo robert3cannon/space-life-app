@@ -481,6 +481,25 @@ function stationDetail(station: StationSpec, equipment: EquipmentProfile) {
   };
 }
 
+/** Mean of each station's scores on the circuit's target muscles. Ratings ignore equipment. */
+export function circuitTargetRating(circuit: Circuit) {
+  const scores: number[] = [];
+  for (const station of circuit.stations) {
+    const exercise = getExercise(station.libraryId);
+    if (!exercise) continue;
+    const hits = circuit.primary
+      .map((muscle) => exercise.ratings[muscle]?.score)
+      .filter((score): score is number => typeof score === "number");
+    if (hits.length) scores.push(hits.reduce((sum, score) => sum + score, 0) / hits.length);
+  }
+  if (!scores.length) return null;
+  const average = Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10;
+  return {
+    average,
+    muscle: circuit.primary.length === 1 ? circuit.primary[0] : null,
+  };
+}
+
 export function summarizeCircuit(circuit: Circuit) {
   const beginner = durationMinutes(circuitDurationSeconds(circuit, "beginner"));
   const intermediate = durationMinutes(circuitDurationSeconds(circuit, "intermediate"));
@@ -496,6 +515,7 @@ export function summarizeCircuit(circuit: Circuit) {
     primary: circuit.primary,
     secondary: circuit.secondary,
     musclesLabel: circuit.primary.map(muscleLabel).join(", "),
+    targetRating: circuitTargetRating(circuit),
   };
 }
 

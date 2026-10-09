@@ -7,6 +7,7 @@ import { muscleLabel } from "@/lib/muscles";
 import type { AppSettings } from "@/lib/types";
 import { useLoad } from "./use-load";
 import { BodyMap } from "./body-map";
+import { RatingDots } from "./rating-dots";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
 const BOARD_IDS = new Set(["Pushups", "Isometric_Wipers"]);
@@ -18,6 +19,7 @@ type Row = {
   level: string;
   primary: string[];
   secondary: string[];
+  ratings?: Record<string, { score: number; why: string }>;
 };
 
 export function ExerciseLibrary() {
@@ -44,10 +46,19 @@ export function ExerciseLibrary() {
 
   const exercises = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (data?.exercises ?? []).filter((exercise) => {
+    const rows = (data?.exercises ?? []).filter((exercise) => {
       if (muscle && !exercise.primary.includes(muscle) && !exercise.secondary.includes(muscle)) return false;
       if (!needle) return true;
       return exercise.name.toLowerCase().includes(needle);
+    });
+    if (!muscle) return rows;
+    return [...rows].sort((a, b) => {
+      const diff = (b.ratings?.[muscle]?.score ?? 0) - (a.ratings?.[muscle]?.score ?? 0);
+      if (diff !== 0) return diff;
+      const aPrimary = a.primary.includes(muscle) ? 0 : 1;
+      const bPrimary = b.primary.includes(muscle) ? 0 : 1;
+      if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+      return a.name.localeCompare(b.name);
     });
   }, [data, q, muscle]);
 
@@ -72,7 +83,7 @@ export function ExerciseLibrary() {
       <Link href={addTo ? `/workouts/${addTo}` : "/workouts"} className="text-btn">Back</Link>
       <p className="kicker" style={{ marginTop: 12 }}>Library</p>
       <h1 className="display">Exercises</h1>
-      <p className="sub">Search the library, or tap a muscle to see what trains it.</p>
+      <p className="sub">Search the library, or tap a muscle to see what trains it, best first.</p>
       <BodyMap
         selected={muscle}
         onSelect={pickMuscle}
@@ -104,20 +115,23 @@ export function ExerciseLibrary() {
             {exercises.map((exercise) => {
               const href = addTo ? `/exercises/${encodeURIComponent(exercise.id)}?addTo=${encodeURIComponent(addTo)}` : `/exercises/${encodeURIComponent(exercise.id)}`;
               const primaryHit = muscle && exercise.primary.includes(muscle);
+              const rating = muscle ? exercise.ratings?.[muscle] : undefined;
               return (
                 <Link key={exercise.id} href={href} className="card" style={{ display: "block" }}>
                   <div className="spread">
                     <strong>{exercise.name}</strong>
-                    <span className="pill" data-type="workout">{exercise.equipment}</span>
+                    {rating ? <RatingDots score={rating.score} label={`${rating.score} out of 5 for ${muscleLabel(muscle ?? "")}`} /> : (
+                      <span className="pill" data-type="workout">{exercise.equipment}</span>
+                    )}
                   </div>
                   <p className="faint" style={{ margin: "6px 0 0" }}>
-                    {exercise.primary.map(muscleLabel).join(", ")}
-                    {exercise.secondary.length ? ` · also ${exercise.secondary.slice(0, 3).map(muscleLabel).join(", ")}` : ""}
+                    {rating ? `${primaryHit ? "Primary" : "Secondary"} · ${muscleLabel(muscle ?? "")}` : exercise.primary.map(muscleLabel).join(", ")}
+                    {!rating && exercise.secondary.length ? ` · also ${exercise.secondary.slice(0, 3).map(muscleLabel).join(", ")}` : ""}
                   </p>
+                  {rating ? <p className="faint" style={{ margin: "4px 0 0" }}>{rating.why}</p> : null}
                   {gear.includes("pushup_board") && BOARD_IDS.has(exercise.id) ? (
                     <p className="station-note" style={{ margin: "4px 0 0" }}>Push-up board hand positions are on the detail page.</p>
                   ) : null}
-                  {muscle ? <p className="muted" style={{ margin: "4px 0 0" }}>{primaryHit ? "Primary" : "Secondary"}</p> : null}
                 </Link>
               );
             })}

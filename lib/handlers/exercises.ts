@@ -30,6 +30,7 @@ async function ownedExercises(req: Request, fallbackLimit: number) {
     q: url.searchParams.get("q") || undefined,
     muscle: url.searchParams.get("muscle") || undefined,
     equipment: requested,
+    sort: url.searchParams.get("sort") || undefined,
   }).filter((exercise) => showAll || owned.includes(exercise.equipment as "bodyweight" | "dumbbell"));
   return { profile, exercises: exercises.slice(0, readLimit(url, fallbackLimit)) };
 }

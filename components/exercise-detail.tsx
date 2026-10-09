@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { muscleLabel } from "@/lib/muscles";
 import type { WorkoutDto } from "@/lib/types";
 import { BodyMap } from "./body-map";
+import { RatingDots } from "./rating-dots";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, PageTitle } from "./ui";
@@ -19,6 +20,7 @@ type Detail = {
   mechanic: string;
   primary: string[];
   secondary: string[];
+  ratings?: Record<string, { score: number; why: string }>;
   steps: string[];
   mistakes: string[];
   images: string[];
@@ -71,8 +73,19 @@ export function ExerciseDetail({ id }: { id: string }) {
           <div className="stack" style={{ marginTop: 8 }}>
             <section className="card">
               <strong>Muscles</strong>
-              <p className="muted" style={{ margin: "8px 0 0" }}>Primary · {data.primary.map(muscleLabel).join(", ")}</p>
-              {data.secondary.length ? <p className="faint" style={{ margin: "4px 0 0" }}>Also · {data.secondary.map(muscleLabel).join(", ")}</p> : null}
+              <ul className="muscle-ratings">
+                {[...data.primary.map((id) => ({ id, role: "Primary" })), ...data.secondary.map((id) => ({ id, role: "Also" }))].map((row) => {
+                  const rating = data.ratings?.[row.id];
+                  return (
+                    <li key={row.id}>
+                      <strong>{muscleLabel(row.id)}</strong>
+                      {rating ? <RatingDots score={rating.score} label={`${rating.score} out of 5 for ${muscleLabel(row.id)}`} /> : null}
+                      <span className="pill" data-type={row.role === "Primary" ? "workout" : "other"}>{row.role}</span>
+                      {rating ? <p className="faint">{rating.why}</p> : null}
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
             {data.board?.length ? (
               <section className="card">

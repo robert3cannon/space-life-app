@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { muscleLabel } from "@/lib/muscles";
 import { BodyMap } from "./body-map";
+import { RatingDots } from "./rating-dots";
 import { useLoad } from "./use-load";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
@@ -13,6 +15,7 @@ type CircuitCard = {
   durationMinutes: { beginner: number; intermediate: number };
   primary: string[];
   secondary: string[];
+  targetRating?: { average: number; muscle: string | null } | null;
 };
 
 function minutes(card: CircuitCard) {
@@ -42,6 +45,15 @@ export function CircuitsView() {
               <span className="circuit-copy">
                 <strong>{circuit.name}</strong>
                 <span className="faint">{minutes(circuit)} · Beginner or intermediate · {circuit.exerciseCount} exercises</span>
+                {circuit.targetRating ? (
+                  <span className="rating-line">
+                    <RatingDots score={circuit.targetRating.average} label={`Average ${circuit.targetRating.average} out of 5`} />
+                    <span className="faint">
+                      Avg {circuit.targetRating.average.toFixed(1)}
+                      {circuit.targetRating.muscle ? ` · ${muscleLabel(circuit.targetRating.muscle)}` : ""}
+                    </span>
+                  </span>
+                ) : null}
                 <span className="muted">{circuit.summary}</span>
               </span>
               <BodyMap

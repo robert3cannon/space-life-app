@@ -7,6 +7,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { EXERCISE_RATINGS } from "../data/exercise-ratings";
 
 type Raw = {
   id: string;
@@ -258,6 +259,7 @@ function main() {
         steps,
         mistakes: mistakes(item.name, muscles.primary),
         images: item.images.slice(0, 2),
+        ratings: EXERCISE_RATINGS[item.id] ?? {},
       };
     })
     .filter((item) => item.primary.length > 0 && item.steps.length > 0);

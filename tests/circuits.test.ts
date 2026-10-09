@@ -14,6 +14,7 @@ import {
   assertCircuitCatalog,
   circuitDurationSeconds,
   circuitFits,
+  circuitTargetRating,
   getCircuit,
   stationCue,
 } from "../lib/circuits";
@@ -98,6 +99,7 @@ describe("circuits", () => {
     const lower = getCircuit("lower-abs");
     assert.ok(lower);
     assert.equal(lower.primary.includes("lower_abs"), true);
+    assert.deepEqual(circuitTargetRating(lower), { average: 3.8, muscle: "lower_abs" });
     const chest = getCircuit("chest");
     const upperChest = getCircuit("upper-chest");
     const lowerChest = getCircuit("lower-chest");
