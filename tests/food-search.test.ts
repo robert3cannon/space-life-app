@@ -372,7 +372,7 @@ describe("food search", () => {
       ["Taco Bell", "crunchwrap", "Crunchwrap Supreme", "third-party"],
       ["Burger King", "whopper", "Whopper", "third-party"],
       ["Popeyes", "popeyes chicken sandwich", "Chicken Sandwich (Classic)", "third-party"],
-      ["Starbucks", "starbucks latte grande", "Caffè Latte (2% milk) (Grande)", "third-party"],
+      ["Starbucks", "caffe latte", "Caffè Latte (2% milk) (Tall)", "third-party"],
     ];
     assert.equal(new Set(probes.map((probe) => probe[0])).size, RESTAURANT_CHAINS.length);
     setFoodCatalogFetch(async (input) => {
@@ -442,5 +442,33 @@ describe("food search", () => {
     const again = (await refreshed.json()) as { foods: FoodHit[] };
     assert.equal(again.foods[0].name, "Caniac Combo");
     assert.equal(again.foods[0].sourceType, "third-party");
+
+    const baconator = await botSearch(
+      new Request("http://localhost/api/bot/food/search?q=baconator%20double", {
+        headers: { authorization: "Bearer test-bot-token-value" },
+      }),
+      ctx,
+    );
+    const baconatorBody = (await baconator.json()) as { foods: FoodHit[] };
+    assert.equal(baconatorBody.foods[0].name, "Baconator");
+    assert.equal(baconatorBody.foods[0].brand, "Wendy's");
+    assert.equal(baconatorBody.foods[0].source, "restaurant");
+  });
+
+  it("does not cache an empty menu when USDA fails", async () => {
+    let calls = 0;
+    setFoodCatalogFetch(async (input) => {
+      calls += 1;
+      const url = String(input);
+      if (url.includes("Branded")) return new Response("unavailable", { status: 503 });
+      if (url.includes("nal.usda.gov")) return jsonResponse({ foods: [] });
+      return jsonResponse({ products: [] });
+    });
+    const headers = { authorization: "Bearer test-bot-token-value" };
+    const first = await botSearch(new Request("http://localhost/api/bot/food/search?q=zzzznotfood", { headers }), ctx);
+    assert.equal(first.status, 503);
+    const second = await botSearch(new Request("http://localhost/api/bot/food/search?q=zzzznotfood", { headers }), ctx);
+    assert.equal(second.status, 503);
+    assert.ok(calls >= 4);
   });
 });

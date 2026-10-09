@@ -1,3 +1,8 @@
+/** Lowercase and strip accents so "caffe" matches "Caffè". */
+export function foldFoodText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 export type FoodNutrients = {
   calories: number;
   proteinG: number;
@@ -205,9 +210,9 @@ export function offToHit(product: OffProduct): FoodHit | null {
 }
 
 export function rankFoodHit(hit: FoodHit, query: string) {
-  const q = query.toLowerCase().trim();
-  const name = hit.name.toLowerCase();
-  const brand = (hit.brand ?? "").toLowerCase();
+  const q = foldFoodText(query.trim());
+  const name = foldFoodText(hit.name);
+  const brand = foldFoodText(hit.brand ?? "");
   const tokens = q.split(/\s+/).filter((token) => token.length > 1);
   let score = 0;
   if (name === q) score += hit.generic ? 120 : 36;

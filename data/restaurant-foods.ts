@@ -1,4 +1,4 @@
-import { scaleFood, scaleListedFood, type FoodHit, type FoodNutrients, type FoodServing } from "../lib/food-catalog";
+import { foldFoodText, scaleFood, scaleListedFood, type FoodHit, type FoodNutrients, type FoodServing } from "../lib/food-catalog";
 import { chickFilA } from "./restaurants/chick-fil-a";
 import { chipotle } from "./restaurants/chipotle";
 import { culvers } from "./restaurants/culvers";
@@ -387,11 +387,11 @@ function toHit(chain: RestaurantChain, item: RestaurantItem): FoodHit {
 }
 
 function words(value: string) {
-  return value.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 1);
+  return foldFoodText(value).split(/[^a-z0-9]+/).filter((word) => word.length > 1);
 }
 
 function haystack(chain: RestaurantChain, item: RestaurantItem) {
-  return [item.name, ...(item.aliases ?? []), chain.name].join(" ").toLowerCase();
+  return foldFoodText([item.name, ...(item.aliases ?? []), chain.name].join(" "));
 }
 
 function chainWords(chain: RestaurantChain) {
@@ -399,8 +399,8 @@ function chainWords(chain: RestaurantChain) {
 }
 
 function mentionsChain(query: string, chain: RestaurantChain) {
-  const q = query.toLowerCase();
-  if (q.includes(chain.name.toLowerCase())) return true;
+  const q = foldFoodText(query);
+  if (q.includes(foldFoodText(chain.name))) return true;
   const tokens = new Set(chain.chainTokens.flatMap((token) => words(token)));
   return words(query).some((word) => tokens.has(word));
 }
@@ -452,9 +452,9 @@ const PLACE_BOOST = 10000;
 const OFFICIAL_BOOST = 1000;
 
 function placeMatches(chain: RestaurantChain, place: string) {
-  const value = place.trim().toLowerCase();
+  const value = foldFoodText(place.trim());
   if (!value || value === "home") return false;
-  if (value === chain.name.toLowerCase()) return true;
+  if (value === foldFoodText(chain.name)) return true;
   const tokens = chainWords(chain);
   const placeWords = words(value);
   return placeWords.length > 0 && placeWords.every((word) => tokens.has(word));
@@ -462,7 +462,7 @@ function placeMatches(chain: RestaurantChain, place: string) {
 
 function score(chain: RestaurantChain, item: RestaurantItem, query: string, place?: string) {
   const wanted = foodWords(query, chain).join(" ");
-  const name = item.name.toLowerCase();
+  const name = foldFoodText(item.name);
   let value = 0;
   if (wanted && name === wanted) value += 500;
   else if (wanted && name.startsWith(wanted)) value += 200;

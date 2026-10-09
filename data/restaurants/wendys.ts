@@ -21,7 +21,7 @@ export const wendys: RestaurantChain = {
     food("daves-single", "Dave's Single", [listed("1 sandwich", 580, 36, 35, 29)], ["daves single", "single"], "third-party"),
     food("daves-double", "Dave's Double", [listed("1 sandwich", 850, 57, 35, 49)], ["daves double", "double"], "third-party"),
     food("daves-triple", "Dave's Triple", [listed("1 sandwich", 1150, 81, 36, 71)], ["daves triple", "triple"], "third-party"),
-    food("baconator", "Baconator", [listed("1 sandwich", 930, 63, 34, 57)], ["baconator"], "third-party"),
+    food("baconator", "Baconator", [listed("1 sandwich", 930, 63, 34, 57)], ["baconator", "baconator double", "double baconator"], "third-party"),
     food("jr-bacon-cheeseburger", "Jr. Bacon Cheeseburger", [listed("1 sandwich", 360, 22, 24, 17)], ["jbc", "junior bacon cheeseburger"], "third-party"),
     food("classic-chicken", "Classic Chicken Sandwich", [listed("1 sandwich", 480, 21, 44, 29)], ["chicken sandwich"], "third-party"),
     food("spicy-chicken", "Spicy Chicken Sandwich", [listed("1 sandwich", 470, 20, 44, 28)], ["spicy chicken"], "third-party"),

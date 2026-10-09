@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { foodCache } from "../db/schema";
 import { HttpError } from "../errors";
 import {
+  foldFoodText,
   foodHitLabel,
   offToHit,
   rankFoodHit,
@@ -146,11 +147,11 @@ function cacheIsCurrent(foods: FoodHit[]) {
 }
 
 export async function searchFoods(query: string, limit = 8, place?: string): Promise<FoodHit[]> {
-  const q = query.trim().replace(/\s+/g, " ");
+  const q = foldFoodText(query.trim().replace(/\s+/g, " "));
   if (q.length < 2 || q.length > 80) throw new HttpError("Enter at least 2 characters", 400);
   const safeLimit = Math.min(15, Math.max(1, limit));
-  const placeKey = (place ?? "").trim().toLowerCase();
-  const key = `search:v8:${catalogStamp()}:${placeKey}:${q.toLowerCase()}`;
+  const placeKey = foldFoodText((place ?? "").trim());
+  const key = `search:v9:${catalogStamp()}:${placeKey}:${q}`;
   const cached = await readCache<FoodHit[]>(key);
   if (cached.hit && cacheIsCurrent(cached.value)) return cached.value.slice(0, safeLimit);
 
@@ -161,13 +162,16 @@ export async function searchFoods(query: string, limit = 8, place?: string): Pro
     return { foods: [] as FoodHit[], partial: true };
   });
   const off = await searchOff(q).catch(() => [] as FoodHit[]);
+  // One USDA page can fail while the other returns no foods. That is a miss of the
+  // upstream, not proof the query has no matches, so it must not be cached as empty.
+  if (usda.partial && usda.foods.length === 0) usdaFailed = true;
   if (curated.length === 0 && usdaFailed && usda.foods.length === 0 && off.length === 0) {
     throw new HttpError("Food search is unavailable right now", 503);
   }
   const curatedLabels = new Set(curated.map((hit) => foodHitLabel(hit).toLowerCase()));
   const foods = [...curated, ...mergeHits(q, [usda.foods, off]).filter((hit) => !curatedLabels.has(foodHitLabel(hit).toLowerCase()))].slice(0, 15);
   const partial = usdaFailed || usda.partial;
-  await writeCache(key, foods, foods.length && !partial ? SEARCH_TTL_MS : EMPTY_TTL_MS);
+  if (foods.length) await writeCache(key, foods, partial ? EMPTY_TTL_MS : SEARCH_TTL_MS);
   return foods.slice(0, safeLimit);
 }
 

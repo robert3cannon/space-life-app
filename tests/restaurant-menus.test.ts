@@ -133,6 +133,10 @@ describe("restaurant menus", () => {
     const latte = searchRestaurantFoods("starbucks latte grande")[0];
     assert.equal(latte.name, "Caffè Latte (2% milk) (Grande)");
     assert.equal(latte.calories, 190);
+    const plainLatte = searchRestaurantFoods("caffe latte")[0];
+    assert.equal(plainLatte.brand, "Starbucks");
+    assert.equal(plainLatte.name, "Caffè Latte (2% milk) (Tall)");
+    assert.equal(plainLatte.sourceType, "third-party");
     assert.equal(searchRestaurantFoods("panda orange chicken")[0].sourceType, "official");
   });
 });
