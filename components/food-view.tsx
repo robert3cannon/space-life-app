@@ -160,7 +160,7 @@ export function FoodView() {
     <main className="page with-fab">
       <PageTitle title="Food" />
       <p className="kicker">Intake</p>
-      <div className="spread">
+      <div className="day-nav" data-testid="day-nav">
         <h1 className="display">{active ? formatLongDate(active).split(",")[0] : "Food"}</h1>
         <div className="row">
           <button className="btn-ghost icon-btn" type="button" aria-label="Previous day" onClick={() => active && setDate(addCalendarDays(active, -1))}>‹</button>

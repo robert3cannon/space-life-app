@@ -139,7 +139,7 @@ export function ScheduleView() {
   return (
     <main className="page with-fab">
       <PageTitle title="Schedule" />
-      <div className="spread">
+      <div className="day-nav" data-testid="day-nav">
         <div>
           <p className="kicker">Eastern time</p>
           <h1 className="display">Schedule</h1>

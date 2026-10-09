@@ -97,7 +97,7 @@ export function WaterView() {
     <main className="page">
       <PageTitle title="Water" />
       <p className="kicker">Water</p>
-      <div className="spread">
+      <div className="day-nav" data-testid="day-nav">
         <h1 className="display">Water</h1>
         <div className="row">
           <button className="btn-ghost icon-btn" type="button" aria-label="Previous day" onClick={() => active && setDate(addCalendarDays(active, -1))}>‹</button>

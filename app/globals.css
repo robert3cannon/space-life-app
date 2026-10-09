@@ -127,7 +127,11 @@ img { max-width: 100%; }
   z-index: 1;
   width: min(100%, 480px);
   margin: 0 auto;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(108px + env(safe-area-inset-bottom));
+  padding:
+    calc(16px + env(safe-area-inset-top))
+    calc(16px + env(safe-area-inset-right))
+    calc(108px + env(safe-area-inset-bottom))
+    calc(16px + env(safe-area-inset-left));
 }
 .page.with-fab {
   padding-bottom: calc(156px + env(safe-area-inset-bottom));
@@ -413,15 +417,44 @@ a.chip { color: var(--text); text-decoration: none; }
   font-weight: 600;
   font-size: 16px;
 }
-.icon-btn {
+.icon-btn,
+.btn-ghost.icon-btn {
   width: 44px;
   min-width: 44px;
+  max-width: 44px;
   height: 44px;
   min-height: 44px;
   padding: 0;
-  flex: none;
+  flex: 0 0 44px;
   font-size: 24px;
   line-height: 1;
+}
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.day-nav > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.day-nav > .row {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+.day-nav .display {
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-wrap: nowrap;
+  font-size: clamp(20px, 6vw, 32px);
 }
 .btn {
   background: linear-gradient(180deg, #b1a4ff, #7d6cff);

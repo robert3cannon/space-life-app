@@ -126,7 +126,7 @@ export function SleepView() {
     <main className="page">
       <PageTitle title="Sleep" />
       <p className="kicker">Sleep</p>
-      <div className="spread">
+      <div className="day-nav" data-testid="day-nav">
         <h1 className="display">Sleep</h1>
         <div className="row">
           <button className="btn-ghost icon-btn" type="button" aria-label="Previous morning" onClick={() => active && setDate(addCalendarDays(active, -1))}>‹</button>
