@@ -608,6 +608,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 .swatch.heat-2 { background: #6b46e8; }
 .swatch.heat-3 { background: #8eb6ff; }
 .swatch.heat-4 { background: #f7f9ff; box-shadow: 0 0 6px rgba(236, 244, 255, 0.9); }
+[data-testid="week-heat"] .body-figure { width: min(100%, 270px); }
 .heat-detail { min-width: 0; margin-top: 8px; }
 .heat-detail ul { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .heat-detail li { min-width: 0; }
