@@ -9,13 +9,14 @@ const tabs = [
   { href: "/schedule", label: "Schedule", icon: PlanIcon },
   { href: "/food", label: "Food", icon: FoodIcon },
   { href: "/workouts", label: "Train", icon: TrainIcon },
+  { href: "/outfits", label: "Outfit", icon: OutfitIcon },
   { href: "/more", label: "More", icon: MoreIcon },
 ];
 
 function isOn(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   if (href === "/more") {
-    return ["/more", "/reminders", "/activity", "/settings", "/water", "/sleep", "/habits", "/outfits"].some((path) => pathname.startsWith(path));
+    return ["/more", "/reminders", "/activity", "/settings", "/water", "/sleep", "/habits"].some((path) => pathname.startsWith(path));
   }
   if (href === "/workouts") {
     return pathname.startsWith("/workouts") || pathname.startsWith("/exercises") || pathname.startsWith("/circuits") || pathname.startsWith("/sessions");
@@ -82,6 +83,15 @@ function TrainIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M6 16l4-8 3 5 2-3 3 6" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M5 19h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+function OutfitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9.2 7.2a2.8 2.8 0 0 1 5.6 0" strokeLinecap="round" />
+      <path d="M12 7.2v2.1" strokeLinecap="round" />
+      <path d="M4.2 18.5 12 10.2l7.8 8.3H4.2Z" strokeLinejoin="round" />
     </svg>
   );
 }
