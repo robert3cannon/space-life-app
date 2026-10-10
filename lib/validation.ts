@@ -335,6 +335,10 @@ export const closetItemPatchSchema = z.object({
   inLaundry: z.boolean().optional(),
 });
 
+export const closetOrientSchema = z.object({
+  turn: z.enum(["left", "right", "flip"]),
+});
+
 export const closetCategorySchema = z.object({
   name: z.string().trim().min(1).max(40),
   slot: z.enum(["top", "bottom", "layer", "shoes", "hat", "extra"]),
@@ -393,6 +397,7 @@ export type HabitCheckInput = z.infer<typeof habitCheckSchema>;
 export type HealthAck = z.infer<typeof healthAckSchema>;
 export type HealthTokenAction = z.infer<typeof healthTokenSchema>;
 export type ClosetItemPatch = z.infer<typeof closetItemPatchSchema>;
+export type ClosetOrient = z.infer<typeof closetOrientSchema>;
 export type ClosetCategoryWrite = z.infer<typeof closetCategorySchema>;
 export type OutfitSet = z.infer<typeof outfitSetSchema>;
 export type OutfitRequest = z.infer<typeof outfitRequestSchema>;

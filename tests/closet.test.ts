@@ -377,7 +377,7 @@ describe("closet bot API", () => {
       image: { bytes: jpeg, type: "image/jpeg" },
       cutout: { bytes: png, type: "image/png" },
     });
-    assert.equal(photo.cutoutUrl, `/api/closet/items/${photo.id}/cutout`);
+    assert.match(photo.cutoutUrl ?? "", new RegExp(`^/api/closet/items/${photo.id}/cutout\\?v=`));
     const hidden = await closetImage(new Request(`http://localhost/api/closet/items/${photo.id}/image`), {
       params: Promise.resolve({ id: photo.id }),
     });

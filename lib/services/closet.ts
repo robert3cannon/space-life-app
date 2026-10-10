@@ -14,6 +14,8 @@ import {
   type StyleTag,
   type WeatherSnap,
 } from "../outfit-picker";
+import type { PhotoTurn } from "../image-orient";
+import { turnPhotoBytes } from "../photo-turn";
 import { todayDateString, zonedDayRange } from "../time";
 import type { ClosetCategoryDto, ClosetItemDto, OutfitDto } from "../types";
 import type { ClosetCategoryWrite, ClosetItemPatch, OutfitSet } from "../validation";
@@ -99,16 +101,23 @@ export async function deleteCategory(id: string) {
   return { ok: true };
 }
 
+function withVersion(url: string, updatedAt: Date) {
+  const version = encodeURIComponent(updatedAt.toISOString());
+  return url.includes("?") ? `${url}&v=${version}` : `${url}?v=${version}`;
+}
+
 function itemDto(row: typeof closetItems.$inferSelect, category: ClosetCategoryDto, origin: string | null, signed: boolean): ClosetItemDto {
   const hasImage = Boolean(row.imageType || row.blobPathname);
   const hasCutout = Boolean(row.cutoutType || row.cutoutBlobPathname);
   let imageUrl: string | null = null;
   let cutoutUrl: string | null = null;
   if (hasImage) {
-    imageUrl = signed && origin ? signClosetImage(row.id, origin) : `/api/closet/items/${row.id}/image`;
+    const path = signed && origin ? signClosetImage(row.id, origin) : `/api/closet/items/${row.id}/image`;
+    imageUrl = withVersion(path, row.updatedAt);
   }
   if (hasCutout) {
-    cutoutUrl = signed && origin ? signClosetImage(row.id, origin, Date.now(), undefined, "cutout") : `/api/closet/items/${row.id}/cutout`;
+    const path = signed && origin ? signClosetImage(row.id, origin, Date.now(), undefined, "cutout") : `/api/closet/items/${row.id}/cutout`;
+    cutoutUrl = withVersion(path, row.updatedAt);
   }
   return {
     id: row.id,
@@ -237,6 +246,29 @@ export async function itemCutout(id: string) {
   const image = await readItemCutout(id);
   if (!image) throw new HttpError("No cutout", 404);
   return image;
+}
+
+/** Rotate or mirror a saved photo and its cutout, then rewrite the stored bytes. */
+export async function orientItem(id: string, turn: PhotoTurn) {
+  const db = getDb();
+  const [current] = await db.select({ id: closetItems.id }).from(closetItems).where(eq(closetItems.id, id));
+  if (!current) throw new HttpError("Item not found", 404);
+  const image = await readItemImage(id);
+  if (!image) throw new HttpError("No photo", 400);
+  const cutout = await readItemCutout(id);
+  let turned: { bytes: Buffer; type: string };
+  let turnedCutout: { bytes: Buffer; type: string } | null = null;
+  try {
+    turned = await turnPhotoBytes(image.bytes, image.type, turn);
+    if (cutout) turnedCutout = await turnPhotoBytes(cutout.bytes, cutout.type, turn);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (/too large/i.test(message)) throw new HttpError("Image is too large. Keep it under 1.5 MB.", 400);
+    throw new HttpError("Couldn't turn that photo", 400);
+  }
+  await writeItemImage(id, turned.bytes, turned.type);
+  if (turnedCutout) await writeItemCutout(id, turnedCutout.bytes);
+  return getItem(id, null, false);
 }
 
 async function lastWornBefore(date: string) {

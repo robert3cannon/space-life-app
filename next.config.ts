@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "@imgly/background-removal", "onnxruntime-web"],
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "@imgly/background-removal", "onnxruntime-web", "sharp"],
   outputFileTracingExcludes: {
     "*": [
       "node_modules/@imgly/background-removal/**/*",

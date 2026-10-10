@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyPhoto, classifyPresentation, colorsInPhoto, scoreClosetPrompt } from "./clothing-detect";
 import { cutOutClothing } from "./clothing-cutout";
+import { compressClothingPhoto, turnPhotoFile } from "./photo-file";
 import { OutfitModel } from "./outfit-model";
 import { api } from "@/lib/client";
+import type { PhotoTurn } from "@/lib/image-orient";
 import { detectionFromScores, matchCategory, wornByPerson, type LabelScore } from "@/lib/closet-detect";
 import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
 import { VIBE_CHIPS } from "@/lib/outfit-prompt";
@@ -39,6 +41,7 @@ type OutfitPayload = { outfit: OutfitDto | null };
 type Draft = {
   id: string;
   local?: boolean;
+  previewUrl: string | null;
   name: string;
   categoryId: string;
   colors: string;
@@ -64,33 +67,6 @@ type PendingPiece = {
   lowConfidence: boolean;
   worn: boolean;
 };
-
-function blobOf(canvas: HTMLCanvasElement, type: string, quality: number) {
-  return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
-}
-
-export async function compressClothingPhoto(file: File) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 800 / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    bitmap.close();
-    throw new Error("Couldn't read that photo");
-  }
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  const webp = await blobOf(canvas, "image/webp", 0.72);
-  const blob = webp && webp.type === "image/webp" ? webp : await blobOf(canvas, "image/jpeg", 0.72);
-  if (!blob) throw new Error("Couldn't compress that photo");
-  const type = blob.type === "image/webp" ? "image/webp" : "image/jpeg";
-  const base = file.name.replace(/\.[a-z0-9]+$/i, "").trim() || "photo";
-  return new File([blob], `${base}.${type === "image/webp" ? "webp" : "jpg"}`, { type });
-}
 
 function weatherLine(outfit: OutfitDto) {
   if (!outfit.weather) return "East Lansing";
@@ -173,6 +149,7 @@ export function ClosetView() {
   function openItem(item: ClosetItemDto) {
     setDraft({
       id: item.id,
+      previewUrl: item.imageUrl,
       name: item.name,
       categoryId: item.categoryId,
       colors: item.colors.join(", "),
@@ -269,6 +246,7 @@ export function ClosetView() {
     setDraft({
       id: piece.id,
       local: true,
+      previewUrl: piece.cutoutPreviewUrl || piece.previewUrl,
       name: piece.name,
       categoryId: piece.categoryId,
       colors: piece.colors.join(", "),
@@ -276,6 +254,47 @@ export function ClosetView() {
       tags: piece.tags,
       inLaundry: piece.inLaundry,
     });
+  }
+
+  async function turnPending(piece: PendingPiece, turn: PhotoTurn) {
+    if (piece.status !== "ready") return;
+    setBusy(true);
+    try {
+      const file = await turnPhotoFile(piece.file, turn);
+      const cutout = piece.cutout ? await turnPhotoFile(piece.cutout, turn) : null;
+      URL.revokeObjectURL(piece.previewUrl);
+      if (piece.cutoutPreviewUrl) URL.revokeObjectURL(piece.cutoutPreviewUrl);
+      const previewUrl = URL.createObjectURL(file);
+      const cutoutPreviewUrl = cutout ? URL.createObjectURL(cutout) : undefined;
+      setPending((rows) => rows.map((row) => (row.id === piece.id ? { ...row, file, previewUrl, cutout, cutoutPreviewUrl } : row)));
+      setDraft((current) => (current?.local && current.id === piece.id ? { ...current, previewUrl: cutoutPreviewUrl || previewUrl } : current));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't turn that photo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function orient(turn: PhotoTurn) {
+    if (!draft) return;
+    if (draft.local) {
+      const piece = pending.find((row) => row.id === draft.id);
+      if (piece) await turnPending(piece, turn);
+      return;
+    }
+    setBusy(true);
+    try {
+      const item = await api<ClosetItemDto>(`/api/closet/items/${draft.id}/orient`, {
+        method: "POST",
+        body: JSON.stringify({ turn }),
+      });
+      setDraft((current) => (current && current.id === item.id ? { ...current, previewUrl: item.imageUrl } : current));
+      await reloadAll();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't turn that photo");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveDraft(event: React.FormEvent) {
@@ -561,20 +580,27 @@ export function ClosetView() {
           </div>
           <div className="closet-grid">
             {pending.map((piece) => (
-              <button
+              <article
                 key={piece.id}
                 className={`closet-tile${(piece.lowConfidence || piece.worn) && piece.status === "ready" ? " flagged" : ""}`}
-                type="button"
                 data-testid="review-item"
                 data-confidence={piece.lowConfidence ? "low" : "ok"}
-                onClick={() => openPending(piece)}
               >
-                <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
-                <span className="closet-tile-copy">
-                  <strong>{piece.name}</strong>
-                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.worn ? <span className="review-flag" data-testid="review-flag">Best with a flat photo of just the clothing</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
-                </span>
-              </button>
+                <button className="closet-tile-open" type="button" onClick={() => openPending(piece)}>
+                  <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
+                  <span className="closet-tile-copy">
+                    <strong>{piece.name}</strong>
+                    {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.worn ? <span className="review-flag" data-testid="review-flag">Best with a flat photo of just the clothing</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
+                  </span>
+                </button>
+                {piece.status === "ready" ? (
+                  <div className="orient-row" role="group" aria-label="Turn photo">
+                    <button type="button" data-testid="rotate-left" aria-label="Rotate left" disabled={busy} onClick={() => void turnPending(piece, "left")}>Left</button>
+                    <button type="button" data-testid="rotate-right" aria-label="Rotate right" disabled={busy} onClick={() => void turnPending(piece, "right")}>Right</button>
+                    <button type="button" data-testid="flip-photo" aria-label="Flip" disabled={busy} onClick={() => void turnPending(piece, "flip")}>Flip</button>
+                  </div>
+                ) : null}
+              </article>
             ))}
           </div>
           <button className="btn" type="button" data-testid="add-detected" style={{ marginTop: 12 }} disabled={busy || detecting || cutting || pending.every((piece) => !piece.categoryId)} onClick={() => void addDetected()}>
@@ -612,6 +638,12 @@ export function ClosetView() {
       <Sheet open={Boolean(draft)} title="Edit piece" onClose={closeEditor}>
         {draft ? (
           <form data-testid="closet-editor" onSubmit={(event) => void saveDraft(event)}>
+            {draft.previewUrl ? <img className="editor-preview" src={draft.previewUrl} alt="" data-testid="editor-preview" /> : null}
+            <div className="orient-row" role="group" aria-label="Turn photo">
+              <button type="button" data-testid="rotate-left" aria-label="Rotate left" disabled={busy} onClick={() => void orient("left")}>Left</button>
+              <button type="button" data-testid="rotate-right" aria-label="Rotate right" disabled={busy} onClick={() => void orient("right")}>Right</button>
+              <button type="button" data-testid="flip-photo" aria-label="Flip" disabled={busy} onClick={() => void orient("flip")}>Flip</button>
+            </div>
             <label className="field">
               <span>Name</span>
               <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required maxLength={80} />

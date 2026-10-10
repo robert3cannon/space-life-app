@@ -87,7 +87,7 @@ async function classifyOnServer(file: File, labels: string[], hypothesis: string
 }
 
 export async function colorsInPhoto(file: File) {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const edge = 64;
   const canvas = document.createElement("canvas");
   canvas.width = edge;

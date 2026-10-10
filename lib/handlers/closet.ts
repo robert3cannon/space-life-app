@@ -12,6 +12,7 @@ import {
   itemImage,
   listCategories,
   listItems,
+  orientItem,
   outfitForDate,
   outfitHistory,
   refreshOutfit,
@@ -28,6 +29,7 @@ import {
   closetCategoryPatchSchema,
   closetCategorySchema,
   closetItemPatchSchema,
+  closetOrientSchema,
   outfitRequestSchema,
   outfitSetSchema,
   outfitSwapSchema,
@@ -96,6 +98,12 @@ export async function patchClosetItem(req: Request, ctx: { params: Promise<{ id:
 
 export async function deleteClosetItem(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   return json(await deleteItem(await routeId(ctx)));
+}
+
+export async function postOrientItem(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const id = await routeId(ctx);
+  const input = closetOrientSchema.parse(await readJson(req));
+  return json(await orientItem(id, input.turn));
 }
 
 export async function getClosetImage(req: Request, ctx: { params: Promise<{ id: string }> }) {

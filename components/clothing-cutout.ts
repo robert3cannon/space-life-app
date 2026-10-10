@@ -35,6 +35,10 @@ function withTimeout<T>(work: Promise<T>, ms: number) {
   });
 }
 
+function decode(blob: Blob) {
+  return createImageBitmap(blob, { imageOrientation: "from-image" });
+}
+
 async function pngFile(blob: Blob) {
   if (blob.size > LIMIT) return null;
   return new File([blob], "cutout.png", { type: "image/png" });
@@ -42,7 +46,7 @@ async function pngFile(blob: Blob) {
 
 async function shrinkPng(blob: Blob) {
   if (blob.size <= LIMIT && blob.type === "image/png") {
-    const bitmap = await createImageBitmap(blob);
+    const bitmap = await decode(blob);
     const edge = Math.max(bitmap.width, bitmap.height);
     if (edge <= 800) {
       bitmap.close();
@@ -50,7 +54,7 @@ async function shrinkPng(blob: Blob) {
     }
     bitmap.close();
   }
-  const bitmap = await createImageBitmap(blob);
+  const bitmap = await decode(blob);
   const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -69,7 +73,7 @@ async function shrinkPng(blob: Blob) {
 
 /** Plain backdrops become transparent when the segmentation model cannot load. The photo stays on the device. */
 async function backdropCutout(file: File) {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await decode(file);
   const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -107,7 +111,7 @@ async function backdropCutout(file: File) {
 
 /** Drop the clear margin so the garment fills its body zone. */
 async function trimToGarment(file: File) {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await decode(file);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
