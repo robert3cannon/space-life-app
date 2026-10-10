@@ -240,6 +240,7 @@ export const outfits = pgTable("outfits", {
   wornAt: timestamp("worn_at", { withTimezone: true, mode: "date" }),
   weather: jsonb("weather").$type<{ tempF: number; code: number; label: string; live: boolean } | null>(),
   generation: integer("generation").notNull().default(0),
+  prompt: text("prompt").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });

@@ -1,3 +1,5 @@
+import { hintMatches, itemKindList, parseOutfitPrompt, requestedHatStyle, requestedLayerKind, type OutfitWish } from "./outfit-prompt";
+
 export const CLOSET_SLOTS = ["top", "bottom", "layer", "shoes", "hat", "extra"] as const;
 export type ClosetSlot = (typeof CLOSET_SLOTS)[number];
 
@@ -140,8 +142,31 @@ function categoryKind(category: string) {
   return "other";
 }
 
-function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: PickItem | null) {
-  let score = 0;
+const CLIP_NUDGE = 8;
+
+function hasColor(item: PickItem, color: string) {
+  return item.colors.some((own) => {
+    const name = own.trim().toLowerCase();
+    return name === color || (color === "gray" && name === "grey");
+  });
+}
+
+function wishAdjustment(item: PickItem, wish: OutfitWish, clip: number) {
+  let score = clip * CLIP_NUDGE;
+  if (wish.excludes.some((hint) => hintMatches(item, hint))) score -= 80;
+  if (wish.allBlack) score += hasColor(item, "black") ? 6 : -2;
+  for (const color of wish.colors) {
+    if (hasColor(item, color)) score += 8;
+  }
+  if (wish.includes.some((hint) => hintMatches(item, hint))) score += 36;
+  if (wish.warmth === "cozy") score += (item.warmth - 3) * 2;
+  if (wish.warmth === "light") score += (3 - item.warmth) * 2;
+  if (wish.comfort && item.tags.includes("casual")) score += 4;
+  return score;
+}
+
+function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: PickItem | null, wish: OutfitWish | null, clip: number) {
+  let score = wish ? wishAdjustment(item, wish, clip) : clip * CLIP_NUDGE;
   if (item.tags.includes(occasion)) score += 8;
   else if (item.tags.includes("casual") || item.tags.length === 0) score += occasion === "casual" ? 3 : 1;
   else score -= 3;
@@ -187,6 +212,12 @@ function pickOne(scored: Scored[], date: string, slot: string, salt: number, avo
   return tied[index].item;
 }
 
+function keepAvailable(items: PickItem[], wish: OutfitWish | null) {
+  if (!wish?.excludes.length) return items;
+  const kept = items.filter((item) => !wish.excludes.some((hint) => hintMatches(item, hint)));
+  return kept.length ? kept : items;
+}
+
 export function pickOutfit(input: {
   items: PickItem[];
   tempF: number;
@@ -197,14 +228,35 @@ export function pickOutfit(input: {
   locked?: Partial<Record<OutfitSlot, string>>;
   swapSlot?: OutfitSlot;
   weatherLive?: boolean;
+  prompt?: string;
+  clipScores?: Record<string, number>;
 }): { slots: Partial<Record<OutfitSlot, string>>; reason: string } {
   const salt = input.salt ?? 0;
   const avoid = new Set(input.avoidIds ?? []);
+  const wish = input.prompt?.trim() ? parseOutfitPrompt(input.prompt) : null;
+  const occasion = wish?.occasion ?? input.occasion;
   const available = input.items.filter((item) => !item.inLaundry);
   const relaxed = available.filter((item) => !recent(item, input.date));
-  const pool = relaxed.length ? relaxed : available;
+  const base = relaxed.length ? relaxed : available;
+  const named = wish ? available.filter((item) => wish.includes.some((hint) => hintMatches(item, hint))) : [];
+  const seen = new Set(base.map((item) => item.id));
+  const pool = base.concat(named.filter((item) => !seen.has(item.id)));
   const byId = new Map(input.items.map((item) => [item.id, item]));
   const chosen: Partial<Record<OutfitSlot, PickItem>> = {};
+  const layerKind = wish ? requestedLayerKind(wish) : null;
+  const hatAsk = wish ? requestedHatStyle(wish) : null;
+
+  function clipOf(item: PickItem) {
+    const value = input.clipScores?.[item.id];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  }
+
+  function ranked(candidates: PickItem[]) {
+    return keepAvailable(candidates, wish).map((item) => ({
+      item,
+      score: scoreItem(item, input.tempF, occasion, chosen.top ?? null, wish, clipOf(item)),
+    }));
+  }
 
   for (const slot of OUTFIT_SLOTS) {
     const lockedId = input.locked?.[slot];
@@ -215,36 +267,41 @@ export function pickOutfit(input: {
         continue;
       }
     }
-    if (slot === "layer" && !layerForTemp(input.tempF)) continue;
+    if (slot === "layer") {
+      if (!layerForTemp(input.tempF) && !layerKind) continue;
+      let candidates = pool.filter((item) => item.slot === "layer");
+      if (layerKind) {
+        const namedLayer = candidates.filter((item) => itemKindList(item).includes(layerKind));
+        if (namedLayer.length) candidates = namedLayer;
+        else if (!layerForTemp(input.tempF)) continue;
+      }
+      const pick = pickOne(ranked(candidates), input.date, slot, salt, avoid);
+      if (pick) chosen.layer = pick;
+      continue;
+    }
     if (slot === "hat") {
-      const want = hatForLook(input.tempF, input.occasion);
-      if (!want) continue;
-      const candidates = pool.filter((item) => item.slot === "hat" && hatStyle(item) === want);
-      const scored = candidates.map((item) => ({
-        item,
-        score: scoreItem(item, input.tempF, input.occasion, chosen.top ?? null),
-      }));
-      const pick = pickOne(scored, input.date, slot, salt, avoid);
+      const want = hatForLook(input.tempF, occasion);
+      if (!want && !hatAsk) continue;
+      let candidates = pool.filter((item) => item.slot === "hat");
+      if (hatAsk === "warm" || hatAsk === "light") {
+        const namedHat = candidates.filter((item) => hatStyle(item) === hatAsk);
+        if (namedHat.length) candidates = namedHat;
+        else if (!want) continue;
+      } else if (want) {
+        candidates = candidates.filter((item) => hatStyle(item) === want);
+      }
+      const pick = pickOne(ranked(candidates), input.date, slot, salt, avoid);
       if (pick) chosen.hat = pick;
       continue;
     }
     if (slot === "bottom") {
       const hot = shortsAllowed(input.tempF);
       const candidates = pool.filter((item) => item.slot === "bottom" && (hot || categoryKind(item.category) !== "shorts"));
-      const scored = (candidates.length ? candidates : pool.filter((item) => item.slot === "bottom")).map((item) => ({
-        item,
-        score: scoreItem(item, input.tempF, input.occasion, chosen.top ?? null),
-      }));
-      const pick = pickOne(scored, input.date, slot, salt, avoid);
+      const pick = pickOne(ranked(candidates.length ? candidates : pool.filter((item) => item.slot === "bottom")), input.date, slot, salt, avoid);
       if (pick) chosen.bottom = pick;
       continue;
     }
-    const candidates = pool.filter((item) => item.slot === slot);
-    const scored = candidates.map((item) => ({
-      item,
-      score: scoreItem(item, input.tempF, input.occasion, chosen.top ?? null),
-    }));
-    const pick = pickOne(scored, input.date, slot, salt, avoid);
+    const pick = pickOne(ranked(pool.filter((item) => item.slot === slot)), input.date, slot, salt, avoid);
     if (pick) chosen[slot] = pick;
   }
 
@@ -252,7 +309,7 @@ export function pickOutfit(input: {
   for (const slot of OUTFIT_SLOTS) {
     if (chosen[slot]) slots[slot] = chosen[slot]!.id;
   }
-  return { slots, reason: describeOutfit(chosen, input.tempF, input.occasion, input.weatherLive !== false) };
+  return { slots, reason: describeOutfit(chosen, input.tempF, occasion, input.weatherLive !== false, wish) };
 }
 
 function describeOutfit(
@@ -260,6 +317,7 @@ function describeOutfit(
   tempF: number,
   occasion: StyleTag,
   live: boolean,
+  wish: OutfitWish | null,
 ) {
   const temp = `${Math.round(tempF)}°F in East Lansing`;
   const day =
@@ -269,8 +327,11 @@ function describeOutfit(
         ? "a work day"
         : occasion === "gym"
           ? "a gym day"
-          : "a casual day";
-  const lead = live ? `${temp} on ${day}` : `Weather didn't load, so this is a mild outfit for ${day}`;
+          : occasion === "dressy"
+            ? "a dressy day"
+            : "a casual day";
+  const asked = wish?.text ? `, for "${wish.text}"` : "";
+  const lead = live ? `${temp} on ${day}${asked}` : `Weather didn't load, so this is a mild outfit for ${day}${asked}`;
   const names = OUTFIT_SLOTS.map((slot) => chosen[slot]?.name).filter(Boolean);
   if (!names.length) return `${lead}. Nothing is out of the laundry yet.`;
   let reason = `${lead}. ${names.join(", ")}.`;

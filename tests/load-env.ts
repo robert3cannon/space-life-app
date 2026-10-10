@@ -1,3 +1,4 @@
+process.env.ORBIT_SKIP_CLIP = "1";
 process.env.DATABASE_URL = "postgres://orbit:orbit@localhost:5432/orbit_test";
 process.env.APP_PASSWORD = "test-passcode";
 process.env.SESSION_SECRET = "test-session-secret-value";

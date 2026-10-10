@@ -1,6 +1,6 @@
 import { CLIP_HYPOTHESIS, CLIP_LABELS, type LabelScore } from "./closet-detect";
 
-let loading: Promise<(blob: Blob) => Promise<LabelScore[]>> | null = null;
+let loading: Promise<(blob: Blob, labels: string[], hypothesis: string) => Promise<LabelScore[]>> | null = null;
 
 async function load() {
   const { env, pipeline, RawImage } = await import("@huggingface/transformers");

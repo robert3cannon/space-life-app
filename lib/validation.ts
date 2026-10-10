@@ -348,6 +348,15 @@ export const outfitSetSchema = z.object({
   reason: z.string().trim().min(1).max(400),
 });
 
+export const outfitRequestSchema = z.object({
+  date: dateField,
+  prompt: z.string().trim().max(200),
+  clipScores: z
+    .record(z.string().uuid(), z.number().min(-1).max(1))
+    .refine((scores) => Object.keys(scores).length <= 80, "Too many scores")
+    .optional(),
+});
+
 export const outfitSwapSchema = z.object({
   date: dateField.optional(),
   slot: z.enum(["top", "bottom", "layer", "shoes", "hat"]),
@@ -386,3 +395,4 @@ export type HealthTokenAction = z.infer<typeof healthTokenSchema>;
 export type ClosetItemPatch = z.infer<typeof closetItemPatchSchema>;
 export type ClosetCategoryWrite = z.infer<typeof closetCategorySchema>;
 export type OutfitSet = z.infer<typeof outfitSetSchema>;
+export type OutfitRequest = z.infer<typeof outfitRequestSchema>;

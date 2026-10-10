@@ -645,9 +645,11 @@ Photos stay private. They are stored in Neon, or in a private Vercel Blob when `
 
 `GET /api/bot/closet` returns `{ count, items, categories }`. Each item has `name`, `category`, `slot` (`top`, `bottom`, `layer`, `shoes`, `hat`, `extra`), `colors`, `warmth` (1–5), `tags` (`casual`, `gym`, `dressy`, `class`, `work`), `inLaundry`, and `imageUrl` when a photo exists. Bot `imageUrl` values are absolute and already signed. Caps and hats are their own category and an optional outfit slot: a beanie when it is under 50°F, and a light cap on a warm casual or gym day.
 
-`GET /api/bot/outfits?date=YYYY-MM-DD` returns `{ outfit }` for that Detroit day. Omit `date` for today. Today is created with the built-in picker when a top or a bottom is out of the laundry and nothing is stored yet. A past day with no row returns `{ outfit: null }`.
+`GET /api/bot/outfits?date=YYYY-MM-DD` returns `{ outfit }` for that Detroit day. Omit `date` for today. Today is created with the built-in picker when a top or a bottom is out of the laundry and nothing is stored yet. A past day with no row returns `{ outfit: null }`. `outfit.prompt` is the vibe saved with that day (an empty string when Robert has not asked for one).
 
-`POST /api/bot/outfits` sets the day’s pick and overrides the built-in picker until Robert taps New outfit.
+`POST /api/bot/outfits/request` with `{ "date": "YYYY-MM-DD", "prompt": "comfy for class" }` re-picks that day and stores the prompt. Parsing is local: occasion, colors, named pieces, cozy or light, and “no X” exclusions. The same CLIP text model used for photos (`Xenova/clip-vit-base-patch32`) scores each item’s name, category, colors, and tags against the prompt. In the app that runs in the browser. The bot route tries it in Node when that runtime is installed, and still re-picks from the keyword rules if the model cannot load. No paid API and no key. Weather rules stay in place. The reason quotes the prompt. A bot override from `POST /api/bot/outfits` keeps the saved prompt.
+
+`POST /api/bot/outfits` sets the day’s pick and overrides the built-in picker until Robert taps New outfit. New outfit keeps the saved prompt.
 
 ```bash
 curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
@@ -662,7 +664,7 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 The built-in picker still runs when the bot is offline. A jacket is preferred under about 50°F, a hoodie from about 50–62°F, and shorts only from about 72°F up. Laundry is skipped. Pieces worn in the last four days are skipped when something else is clean. Class and work days come from the schedule. Weather is Open-Meteo for East Lansing, with no API key. If that request fails, the picker uses a mild 60°F stand-in and says the weather did not load.
 
-Signed-in mirrors: `GET/POST /api/closet/items`, `PATCH/DELETE /api/closet/items/:id`, `GET/POST /api/closet/categories`, `PATCH/DELETE /api/closet/categories/:id`, `GET /api/outfits`, `POST /api/outfits/new`, `POST /api/outfits/swap` with `{ "slot": "top" }`, `POST /api/outfits/wore`, and `GET /api/outfits/history`.
+Signed-in mirrors: `GET/POST /api/closet/items`, `PATCH/DELETE /api/closet/items/:id`, `GET/POST /api/closet/categories`, `PATCH/DELETE /api/closet/categories/:id`, `GET /api/outfits`, `POST /api/outfits/request` with `{ "date", "prompt" }` and optional `clipScores`, `POST /api/outfits/new`, `POST /api/outfits/swap` with `{ "slot": "top" }`, `POST /api/outfits/wore`, and `GET /api/outfits/history`.
 
 ## Tests
 

@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
-import { classifyPhoto, classifyPresentation, colorsInPhoto } from "./clothing-detect";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { classifyPhoto, classifyPresentation, colorsInPhoto, scoreClosetPrompt } from "./clothing-detect";
 import { cutOutClothing } from "./clothing-cutout";
 import { OutfitModel } from "./outfit-model";
 import { api } from "@/lib/client";
 import { detectionFromScores, matchCategory, wornByPerson, type LabelScore } from "@/lib/closet-detect";
 import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
+import { VIBE_CHIPS } from "@/lib/outfit-prompt";
+import { todayDateString } from "@/lib/time";
 import type { ClosetCategoryDto, ClosetItemDto, ClosetSlotName, OutfitDto, OutfitSlotName } from "@/lib/types";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
@@ -153,7 +155,13 @@ export function ClosetView() {
   const [catsOpen, setCatsOpen] = useState(false);
   const [pending, setPending] = useState<PendingPiece[]>([]);
   const [outfitView, setOutfitView] = useState<"model" | "pieces">("model");
+  const [vibe, setVibe] = useState("");
   const [newCat, setNewCat] = useState({ name: "", slot: "top" as ClosetSlotName });
+  const savedPrompt = outfit.data?.outfit?.prompt ?? "";
+
+  useEffect(() => {
+    setVibe(savedPrompt);
+  }, [savedPrompt]);
 
   const closeEditor = useCallback(() => setDraft(null), []);
   const closeCats = useCallback(() => setCatsOpen(false), []);
@@ -353,6 +361,30 @@ export function ClosetView() {
     }
   }
 
+  async function askVibe(prompt: string) {
+    const text = prompt.trim().slice(0, 200);
+    setVibe(text);
+    setBusy(true);
+    try {
+      const clipScores = text ? await scoreClosetPrompt(text, closet.data?.items ?? []) : undefined;
+      const data = await api<OutfitPayload>("/api/outfits/request", {
+        method: "POST",
+        body: JSON.stringify({
+          date: outfit.data?.outfit?.date ?? todayDateString(),
+          prompt: text,
+          ...(clipScores ? { clipScores } : {}),
+        }),
+      });
+      outfit.setData(data);
+      setSwapOpen(false);
+      toast(text ? "Outfit updated" : "Cleared the vibe");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't match that vibe");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function newOutfit() {
     setBusy(true);
     try {
@@ -450,6 +482,42 @@ export function ClosetView() {
       <section className="card hero closet-outfit" data-testid="today-outfit">
         <p className="kicker">{pick ? weatherLine(pick) : "East Lansing"}</p>
         <h2>Today’s outfit</h2>
+        <form
+          className="vibe-box"
+          data-testid="outfit-vibe"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void askVibe(vibe);
+          }}
+        >
+          <label className="field">
+            <span>What vibe today?</span>
+            <input
+              data-testid="outfit-prompt"
+              placeholder="What vibe today?"
+              value={vibe}
+              maxLength={200}
+              onChange={(event) => setVibe(event.target.value)}
+            />
+          </label>
+          <div className="chips vibe-chips" role="group" aria-label="Quick vibes">
+            {VIBE_CHIPS.map((chip) => (
+              <button
+                key={chip.label}
+                className={`chip ${vibe.trim().toLowerCase() === chip.prompt ? "on" : ""}`}
+                type="button"
+                data-testid={`vibe-${chip.label.toLowerCase().replace(/\s+/g, "-")}`}
+                disabled={busy}
+                onClick={() => void askVibe(chip.prompt)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn" type="submit" data-testid="outfit-prompt-go" disabled={busy}>
+            {busy ? "Picking..." : "Pick"}
+          </button>
+        </form>
         {pick ? (
           <>
             <div className="outfit-toggle" role="group" aria-label="Outfit view">

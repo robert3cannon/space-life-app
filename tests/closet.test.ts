@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { POST as login } from "../app/api/auth/login/route";
 import { GET as botCloset } from "../app/api/bot/closet/route";
 import { GET as botHistory } from "../app/api/bot/outfits/history/route";
+import { POST as botRequestOutfit } from "../app/api/bot/outfits/request/route";
 import { GET as botOutfit, POST as botSetOutfit } from "../app/api/bot/outfits/route";
 import { PATCH as patchCategory } from "../app/api/closet/categories/[id]/route";
 import { GET as closetCutout } from "../app/api/closet/items/[id]/cutout/route";
@@ -15,6 +16,7 @@ import { NextRequest } from "next/server";
 import { signClosetImage } from "../lib/closet-image";
 import { closeDb, getSql } from "../lib/db";
 import { pickOutfit, type PickItem } from "../lib/outfit-picker";
+import { parseOutfitPrompt } from "../lib/outfit-prompt";
 import { outfitReminderIsDue } from "../lib/services/reminders";
 import { createItem, listCategories, listItems, updateCategory, updateItem } from "../lib/services/closet";
 import { createEvent } from "../lib/services/events";
@@ -201,6 +203,129 @@ describe("outfit picker", () => {
     assert.equal(capOnly.slots.hat, undefined);
   });
 
+  it("reads occasion, color, warmth, and exclusions from a vibe", () => {
+    assert.equal(parseOutfitPrompt("comfy for class").occasion, "class");
+    assert.equal(parseOutfitPrompt("comfy for class").comfort, true);
+    assert.equal(parseOutfitPrompt("date night").occasion, "dressy");
+    assert.equal(parseOutfitPrompt("going to the gym after").occasion, "gym");
+    assert.equal(parseOutfitPrompt("all black").allBlack, true);
+    assert.equal(parseOutfitPrompt("cozy").warmth, "cozy");
+    assert.equal(parseOutfitPrompt("light").warmth, "light");
+    assert.deepEqual(parseOutfitPrompt("something with my red hoodie").includes, [{ colors: ["red"], kinds: ["hoodie"] }]);
+    assert.deepEqual(parseOutfitPrompt("no jeans").excludes, [{ colors: [], kinds: ["jeans"] }]);
+    assert.deepEqual(parseOutfitPrompt("comfy").occasion, "casual");
+  });
+
+  it("re-picks from the prompt and still follows the weather", () => {
+    const closet = [
+      item({ id: "oxford", name: "Oxford", slot: "top", category: "Shirts/T-shirts", tags: ["class"], warmth: 3, colors: ["navy"] }),
+      item({ id: "henley", name: "Henley", slot: "top", category: "Shirts/T-shirts", tags: ["class", "casual"], warmth: 3, colors: ["gray"] }),
+      item({ id: "gym-tee", name: "Gym tee", slot: "top", category: "Shirts/T-shirts", tags: ["gym"], warmth: 2, colors: ["red"] }),
+      item({ id: "dress", name: "Black button-down", slot: "top", category: "Shirts/T-shirts", tags: ["dressy"], warmth: 3, colors: ["black"] }),
+      item({ id: "white", name: "White tee", slot: "top", category: "Shirts/T-shirts", tags: ["casual"], warmth: 3, colors: ["white"] }),
+      item({ id: "black-tee", name: "Black tee", slot: "top", category: "Shirts/T-shirts", tags: ["casual"], warmth: 3, colors: ["black"] }),
+      item({ id: "jeans", name: "Jeans", slot: "bottom", category: "Pants", colors: ["blue"] }),
+      item({ id: "chinos", name: "Chinos", slot: "bottom", category: "Pants", colors: ["khaki"] }),
+      item({ id: "black-pants", name: "Black pants", slot: "bottom", category: "Pants", colors: ["black"] }),
+      item({ id: "shorts", name: "Gym shorts", slot: "bottom", category: "Shorts", tags: ["gym"], warmth: 1 }),
+      item({ id: "warm-hood", name: "Heavy hoodie", slot: "layer", category: "Hoodies", warmth: 5, colors: ["gray"] }),
+      item({ id: "light-hood", name: "Light hoodie", slot: "layer", category: "Hoodies", warmth: 2, colors: ["gray"] }),
+      item({ id: "red-hood", name: "Red hoodie", slot: "layer", category: "Hoodies", warmth: 4, colors: ["red"] }),
+      item({ id: "jacket", name: "Navy jacket", slot: "layer", category: "Jackets", warmth: 5, colors: ["navy"] }),
+      item({ id: "black-jacket", name: "Black jacket", slot: "layer", category: "Jackets", warmth: 5, colors: ["black"] }),
+    ];
+
+    const comfy = pickOutfit({ date, tempF: 68, occasion: "casual", prompt: "comfy for class", items: closet });
+    assert.equal(comfy.slots.top, "henley");
+    assert.match(comfy.reason, /class day/);
+    assert.match(comfy.reason, /comfy for class/);
+
+    const dateNight = pickOutfit({ date, tempF: 68, occasion: "casual", prompt: "date night", items: closet });
+    assert.equal(dateNight.slots.top, "dress");
+    assert.match(dateNight.reason, /dressy day/);
+    assert.match(dateNight.reason, /date night/);
+
+    const mono = pickOutfit({ date, tempF: 70, occasion: "casual", prompt: "all black", items: closet });
+    assert.equal(mono.slots.top, "black-tee");
+    assert.equal(mono.slots.bottom, "black-pants");
+    assert.equal(mono.slots.layer, undefined);
+    assert.match(mono.reason, /all black/);
+
+    const coldMono = pickOutfit({ date, tempF: 45, occasion: "casual", prompt: "all black", items: closet });
+    assert.equal(coldMono.slots.layer, "black-jacket");
+
+    const gym = pickOutfit({ date, tempF: 75, occasion: "class", prompt: "going to the gym after", items: closet });
+    assert.equal(gym.slots.top, "gym-tee");
+    assert.equal(gym.slots.bottom, "shorts");
+    assert.match(gym.reason, /gym day/);
+
+    const coldGym = pickOutfit({ date, tempF: 45, occasion: "casual", prompt: "going to the gym after", items: closet });
+    assert.notEqual(coldGym.slots.bottom, "shorts");
+    assert.ok(coldGym.slots.layer === "jacket" || coldGym.slots.layer === "black-jacket");
+
+    const hotCozy = pickOutfit({ date, tempF: 75, occasion: "casual", prompt: "cozy", items: closet });
+    assert.equal(hotCozy.slots.layer, undefined);
+    assert.match(hotCozy.reason, /cozy/);
+    const coolCozy = pickOutfit({ date, tempF: 55, occasion: "casual", prompt: "cozy", items: closet });
+    assert.equal(coolCozy.slots.layer, "warm-hood");
+    const coolLight = pickOutfit({ date, tempF: 55, occasion: "casual", prompt: "light", items: closet });
+    assert.equal(coolLight.slots.layer, "light-hood");
+
+    const named = pickOutfit({ date, tempF: 75, occasion: "casual", prompt: "something with my red hoodie", items: closet });
+    assert.equal(named.slots.layer, "red-hood");
+    assert.match(named.reason, /something with my red hoodie/);
+    const coldNamed = pickOutfit({ date, tempF: 45, occasion: "casual", prompt: "something with my red hoodie", items: closet });
+    assert.equal(coldNamed.slots.layer, "red-hood");
+
+    const noJeans = pickOutfit({
+      date,
+      tempF: 60,
+      occasion: "casual",
+      prompt: "no jeans",
+      items: [
+        item({ id: "tee", name: "Tee", slot: "top", category: "Shirts/T-shirts" }),
+        item({ id: "jeans", name: "Jeans", slot: "bottom", category: "Pants" }),
+        item({ id: "chinos", name: "Chinos", slot: "bottom", category: "Pants" }),
+      ],
+    });
+    assert.equal(noJeans.slots.bottom, "chinos");
+    const noHood = pickOutfit({
+      date,
+      tempF: 55,
+      occasion: "casual",
+      prompt: "no hoodie",
+      items: [
+        item({ id: "tee", name: "Tee", slot: "top", category: "Shirts/T-shirts" }),
+        item({ id: "pants", name: "Jeans", slot: "bottom", category: "Pants" }),
+        item({ id: "warm-hood", name: "Heavy hoodie", slot: "layer", category: "Hoodies", warmth: 5 }),
+        item({ id: "jacket", name: "Navy jacket", slot: "layer", category: "Jackets", warmth: 5 }),
+      ],
+    });
+    assert.equal(noHood.slots.layer, "jacket");
+
+    const nudged = pickOutfit({
+      date,
+      tempF: 70,
+      occasion: "casual",
+      prompt: "class",
+      clipScores: { "gym-tee": 1, oxford: 0 },
+      items: [
+        item({ id: "oxford", name: "Oxford", slot: "top", category: "Shirts/T-shirts", tags: ["class"] }),
+        item({ id: "gym-tee", name: "Gym tee", slot: "top", category: "Shirts/T-shirts", tags: ["gym"] }),
+        item({ id: "jeans", name: "Jeans", slot: "bottom", category: "Pants" }),
+      ],
+    });
+    assert.equal(nudged.slots.top, "oxford");
+    const tied = pickOutfit({
+      date,
+      tempF: 70,
+      occasion: "casual",
+      clipScores: { white: 0.1, "black-tee": 0.9 },
+      items: [item({ id: "white", name: "White tee", slot: "top", category: "Shirts/T-shirts", colors: ["white"] }), item({ id: "black-tee", name: "Black tee", slot: "top", category: "Shirts/T-shirts", colors: ["black"] }), item({ id: "jeans", name: "Jeans", slot: "bottom", category: "Pants" })],
+    });
+    assert.equal(tied.slots.top, "black-tee");
+  });
+
   it("treats a 10:30 outfit nudge as due when the morning cron is within 90 minutes", () => {
     const today = "2026-01-15";
     const fireAt = new Date("2026-01-15T15:30:00.000Z");
@@ -304,7 +429,8 @@ describe("closet bot API", () => {
 
     const created = await botOutfit(new Request("http://localhost/api/bot/outfits", { headers: bot }), ctx);
     assert.equal(created.status, 200);
-    const first = (await created.json()) as { outfit: { source: string; reason: string; items: { slot: string; name: string; id: string; imageUrl: string | null }[] } };
+    const first = (await created.json()) as { outfit: { source: string; prompt: string; reason: string; items: { slot: string; name: string; id: string; imageUrl: string | null }[] } };
+    assert.equal(first.outfit.prompt, "");
     const names = Object.fromEntries(first.outfit.items.map((row) => [row.slot, row.name]));
     assert.equal(first.outfit.source, "rules");
     assert.equal(names.layer, "Navy jacket");
@@ -383,5 +509,53 @@ describe("closet bot API", () => {
       { params: Promise.resolve({ id: shirts.id }) },
     );
     assert.equal(viaRoute.status, 200);
+
+    const denied = await botRequestOutfit(
+      new Request("http://localhost/api/bot/outfits/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ date: today, prompt: "something with my red hoodie" }),
+      }),
+      ctx,
+    );
+    assert.equal(denied.status, 401);
+
+    const red = await createItem({ name: "Red hoodie", categoryId: idOf("Hoodies"), colors: ["red"], warmth: 4, tags: ["casual"] });
+    const asked = await botRequestOutfit(
+      new Request("http://localhost/api/bot/outfits/request", {
+        method: "POST",
+        headers: bot,
+        body: JSON.stringify({ date: today, prompt: "something with my red hoodie" }),
+      }),
+      ctx,
+    );
+    assert.equal(asked.status, 200);
+    const wished = (await asked.json()) as { outfit: { source: string; prompt: string; reason: string; items: { slot: string; name: string; id: string }[] } };
+    assert.equal(wished.outfit.prompt, "something with my red hoodie");
+    assert.equal(wished.outfit.source, "rules");
+    assert.equal(wished.outfit.items.find((row) => row.slot === "layer")?.id, red.id);
+    assert.match(wished.outfit.reason, /something with my red hoodie/);
+
+    const seen = await botOutfit(new Request("http://localhost/api/bot/outfits", { headers: bot }), ctx);
+    const seenBody = (await seen.json()) as { outfit: { prompt: string } };
+    assert.equal(seenBody.outfit.prompt, "something with my red hoodie");
+
+    const keptPrompt = await botSetOutfit(
+      new Request("http://localhost/api/bot/outfits", {
+        method: "POST",
+        headers: bot,
+        body: JSON.stringify({ date: today, itemIds: [jacket.id], reason: "Jacket over the vibe." }),
+      }),
+      ctx,
+    );
+    const keptBody = (await keptPrompt.json()) as { outfit: { prompt: string; source: string } };
+    assert.equal(keptBody.outfit.source, "bot");
+    assert.equal(keptBody.outfit.prompt, "something with my red hoodie");
+
+    const refreshedPrompt = await newOutfit(new Request("http://localhost/api/outfits/new", { method: "POST", headers: { cookie } }), ctx);
+    const refreshedBody = (await refreshedPrompt.json()) as { outfit: { prompt: string; source: string } };
+    assert.equal(refreshedPrompt.status, 200);
+    assert.equal(refreshedBody.outfit.prompt, "something with my red hoodie");
+    assert.equal(refreshedBody.outfit.source, "rules");
   });
 });

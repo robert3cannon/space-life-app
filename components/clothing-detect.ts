@@ -8,14 +8,15 @@ import {
   PRESENTATION_LABELS,
   type LabelScore,
 } from "@/lib/closet-detect";
+import { cosine, outfitItemText } from "@/lib/outfit-prompt";
 
-type WorkerResponse = { id: string; scores?: LabelScore[]; error?: string };
+type WorkerResponse = { id: string; scores?: LabelScore[]; vectors?: number[][]; error?: string };
 
 let worker: Worker | null = null;
 let browserFailed = false;
 let chain: Promise<void> = Promise.resolve();
 let nextId = 0;
-const pending = new Map<string, { resolve: (scores: LabelScore[]) => void; reject: (err: Error) => void }>();
+const pending = new Map<string, { resolve: (message: WorkerResponse) => void; reject: (err: Error) => void }>();
 
 function getWorker() {
   if (!worker) {
@@ -24,8 +25,8 @@ function getWorker() {
       const job = pending.get(event.data.id);
       if (!job) return;
       pending.delete(event.data.id);
-      if (event.data.error || !event.data.scores) job.reject(new Error(event.data.error || "Detection failed"));
-      else job.resolve(event.data.scores);
+      if (event.data.error) job.reject(new Error(event.data.error));
+      else job.resolve(event.data);
     };
     worker.onerror = () => {
       browserFailed = true;
@@ -40,7 +41,7 @@ function classifyInBrowser(file: File, labels: string[], hypothesis: string) {
   const run = chain.then(async () => {
     const buffer = await file.arrayBuffer();
     const id = String(++nextId);
-    const scores = await new Promise<LabelScore[]>((resolve, reject) => {
+    const message = await new Promise<WorkerResponse>((resolve, reject) => {
       const timer = window.setTimeout(() => {
         pending.delete(id);
         reject(new Error("Detection timed out"));
@@ -57,7 +58,8 @@ function classifyInBrowser(file: File, labels: string[], hypothesis: string) {
       });
       getWorker().postMessage({ id, buffer, mime: file.type || "image/jpeg", labels, hypothesis }, [buffer]);
     });
-    return scores;
+    if (!message.scores) throw new Error("Detection failed");
+    return message.scores;
   });
   chain = run.then(
     () => undefined,
@@ -119,4 +121,56 @@ export function classifyPhoto(file: File) {
 /** "a person wearing clothes" against "clothing laid flat". The photo stays on the device. */
 export function classifyPresentation(file: File) {
   return classify(file, PRESENTATION_LABELS, PRESENTATION_HYPOTHESIS);
+}
+
+function embedInBrowser(texts: string[]) {
+  const run = chain.then(async () => {
+    const id = String(++nextId);
+    const message = await new Promise<WorkerResponse>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        pending.delete(id);
+        reject(new Error("Embedding timed out"));
+      }, 90000);
+      pending.set(id, {
+        resolve: (value) => {
+          window.clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (err) => {
+          window.clearTimeout(timer);
+          reject(err);
+        },
+      });
+      getWorker().postMessage({ id, texts });
+    });
+    if (!message.vectors) throw new Error("Embedding failed");
+    return message.vectors;
+  });
+  chain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/** Score closet copy against the prompt with the same in-browser CLIP model. The text stays on the device. */
+export async function scoreClosetPrompt(
+  prompt: string,
+  items: { id: string; name: string; category: string; colors: string[]; tags: string[] }[],
+) {
+  const text = prompt.trim();
+  if (!text || !items.length || typeof Worker === "undefined") return undefined;
+  try {
+    const texts = [text, ...items.map((item) => outfitItemText(item))];
+    const vectors = await embedInBrowser(texts);
+    if (vectors.length !== texts.length) return undefined;
+    const scores: Record<string, number> = {};
+    items.forEach((item, index) => {
+      const score = cosine(vectors[0], vectors[index + 1]);
+      if (Number.isFinite(score)) scores[item.id] = Math.max(-1, Math.min(1, score));
+    });
+    return scores;
+  } catch {
+    return undefined;
+  }
 }

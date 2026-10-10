@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
       "node_modules/@huggingface/transformers/**/*",
       "node_modules/onnxruntime-web/**/*",
     ],
+    "/api/bot/outfits/request": [
+      "node_modules/onnxruntime-node/**/*",
+      "node_modules/@huggingface/transformers/**/*",
+      "node_modules/onnxruntime-web/**/*",
+    ],
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

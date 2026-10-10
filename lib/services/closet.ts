@@ -294,6 +294,7 @@ async function readOutfit(date: string, origin: string | null, signed: boolean):
     id: outfit.id,
     date: outfit.wearDate,
     reason: outfit.reason,
+    prompt: outfit.prompt ?? "",
     source: outfit.source === "bot" ? "bot" : "rules",
     wornAt: outfit.wornAt ? outfit.wornAt.toISOString() : null,
     weather: weather
@@ -312,7 +313,7 @@ async function readOutfit(date: string, origin: string | null, signed: boolean):
   };
 }
 
-async function savePick(date: string, slots: Partial<Record<OutfitSlot, string>>, reason: string, source: "rules" | "bot", weather: WeatherSnap | null, generation: number) {
+async function savePick(date: string, slots: Partial<Record<OutfitSlot, string>>, reason: string, source: "rules" | "bot", weather: WeatherSnap | null, generation: number, prompt: string) {
   const db = getDb();
   const [existing] = await db.select().from(outfits).where(eq(outfits.wearDate, date));
   const row = existing
@@ -321,6 +322,7 @@ async function savePick(date: string, slots: Partial<Record<OutfitSlot, string>>
           .update(outfits)
           .set({
             reason,
+            prompt,
             source,
             weather,
             generation,
@@ -333,7 +335,7 @@ async function savePick(date: string, slots: Partial<Record<OutfitSlot, string>>
     : (
         await db
           .insert(outfits)
-          .values({ wearDate: date, reason, source, weather, generation })
+          .values({ wearDate: date, reason, prompt, source, weather, generation })
           .returning()
       )[0];
   await db.delete(outfitSlots).where(eq(outfitSlots.outfitId, row.id));
@@ -341,7 +343,7 @@ async function savePick(date: string, slots: Partial<Record<OutfitSlot, string>>
   if (links.length) await db.insert(outfitSlots).values(links);
 }
 
-export async function ensureOutfit(date: string, origin: string | null, signed: boolean, options?: { force?: boolean; salt?: number; avoidIds?: string[]; swapSlot?: OutfitSlot }) {
+export async function ensureOutfit(date: string, origin: string | null, signed: boolean, options?: { force?: boolean; salt?: number; avoidIds?: string[]; swapSlot?: OutfitSlot; prompt?: string; clipScores?: Record<string, number> }) {
   const current = await readOutfit(date, origin, signed);
   if (current && !options?.force && !options?.swapSlot) return current;
   const closet = await pickInputs(date);
@@ -361,6 +363,7 @@ export async function ensureOutfit(date: string, origin: string | null, signed: 
       if (item.slot !== options.swapSlot) locked[item.slot] = item.id;
     }
   }
+  const prompt = options?.prompt !== undefined ? options.prompt : (stored?.prompt ?? "");
   const picked = pickOutfit({
     items: closet,
     tempF: weather.tempF,
@@ -371,9 +374,11 @@ export async function ensureOutfit(date: string, origin: string | null, signed: 
     locked,
     swapSlot: options?.swapSlot,
     weatherLive: weather.live,
+    prompt,
+    clipScores: options?.clipScores,
   });
   if (!picked.slots.top && !picked.slots.bottom) return current;
-  await savePick(date, picked.slots, picked.reason, "rules", weather, generation);
+  await savePick(date, picked.slots, picked.reason, "rules", weather, generation, prompt);
   return readOutfit(date, origin, signed);
 }
 
@@ -419,8 +424,12 @@ export async function setOutfit(input: OutfitSet, origin: string | null, signed:
   if (!Object.keys(slots).length) throw new HttpError("Pick at least one wearable item", 400);
   const [existing] = await db.select().from(outfits).where(eq(outfits.wearDate, input.date));
   const weather = asWeather(existing?.weather) ?? (await eastLansingWeather());
-  await savePick(input.date, slots, input.reason.trim(), "bot", weather, (existing?.generation ?? 0) + 1);
+  await savePick(input.date, slots, input.reason.trim(), "bot", weather, (existing?.generation ?? 0) + 1, existing?.prompt ?? "");
   return readOutfit(input.date, origin, signed);
+}
+
+export async function requestOutfit(date: string, prompt: string, origin: string | null, signed: boolean, clipScores?: Record<string, number>) {
+  return ensureOutfit(date, origin, signed, { force: true, prompt: prompt.trim().slice(0, 200), clipScores });
 }
 
 export async function outfitHistory(limit: number, origin: string | null, signed: boolean) {

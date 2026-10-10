@@ -306,6 +306,7 @@ export type OutfitDto = {
   id: string;
   date: string;
   reason: string;
+  prompt: string;
   source: "rules" | "bot";
   wornAt: string | null;
   weather: { tempF: number; label: string; place: string; live: boolean } | null;

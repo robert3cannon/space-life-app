@@ -152,7 +152,7 @@ export function nearestColorName(r: number, g: number, b: number) {
 
 function kmeans(pixels: Sample[], k: number) {
   if (!pixels.length) return [] as { r: number; g: number; b: number; count: number }[];
-  const seeds = [];
+  const seeds: { L: number; a: number; b: number; r: number; g: number; bRgb: number }[] = [];
   for (let index = 0; index < k; index += 1) {
     const pixel = pixels[Math.min(pixels.length - 1, Math.floor(((index + 0.5) * pixels.length) / k))];
     seeds.push({ L: pixel.L, a: pixel.aLab, b: pixel.bLab, r: pixel.r, g: pixel.g, bRgb: pixel.b });

@@ -531,6 +531,9 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   color: #fff;
 }
 .closet-outfit { margin-top: 18px; }
+.vibe-box { display: grid; gap: 8px; margin-top: 12px; min-width: 0; }
+.vibe-box .field { margin-bottom: 0; }
+.vibe-chips { flex-wrap: wrap; overflow: visible; }
 .closet-upload { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
 .closet-upload-tip { grid-column: 1 / -1; margin: 0; font-size: 13px; line-height: 1.4; }
 .closet-filters { margin-bottom: 12px; }

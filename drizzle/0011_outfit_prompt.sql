@@ -1,0 +1,1 @@
+ALTER TABLE outfits ADD COLUMN prompt text NOT NULL DEFAULT '';

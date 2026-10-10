@@ -16,6 +16,7 @@ import {
   outfitHistory,
   refreshOutfit,
   requestOrigin,
+  requestOutfit,
   setOutfit,
   swapOutfitSlot,
   updateCategory,
@@ -27,6 +28,7 @@ import {
   closetCategoryPatchSchema,
   closetCategorySchema,
   closetItemPatchSchema,
+  outfitRequestSchema,
   outfitSetSchema,
   outfitSwapSchema,
 } from "../validation";
@@ -162,6 +164,13 @@ export async function postOutfit(req: Request) {
   const signed = isBotRequest(req);
   const input = outfitSetSchema.parse(await readJson(req));
   return json({ outfit: await setOutfit(input, originOf(req, signed), signed) });
+}
+
+export async function postOutfitRequest(req: Request) {
+  const signed = isBotRequest(req);
+  const input = outfitRequestSchema.parse(await readJson(req));
+  const outfit = await requestOutfit(input.date, input.prompt, originOf(req, signed), signed, input.clipScores);
+  return json({ outfit });
 }
 
 export async function postNewOutfit(req: Request) {
