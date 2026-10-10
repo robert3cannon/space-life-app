@@ -1,5 +1,7 @@
 "use client";
 
+import { foregroundBounds } from "@/lib/closet-detect";
+
 const LIMIT = 1_400_000;
 
 type Remover = (image: Blob, config?: Record<string, unknown>) => Promise<Blob>;
@@ -103,6 +105,33 @@ async function backdropCutout(file: File) {
   return pngFile(blob);
 }
 
+/** Drop the clear margin so the garment fills its body zone. */
+async function trimToGarment(file: File) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const bounds = foregroundBounds(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+  if (!bounds || bounds.width < 8 || bounds.height < 8) return file;
+  if (bounds.x === 0 && bounds.y === 0 && bounds.width === canvas.width && bounds.height === canvas.height) return file;
+  const cropped = document.createElement("canvas");
+  cropped.width = bounds.width;
+  cropped.height = bounds.height;
+  const out = cropped.getContext("2d");
+  if (!out) return file;
+  out.drawImage(canvas, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
+  const blob = await new Promise<Blob | null>((resolve) => cropped.toBlob(resolve, "image/png"));
+  if (!blob) return file;
+  return (await pngFile(blob)) ?? file;
+}
+
 /** ISNet in the browser. The weights download once from IMG.LY and the photo is not uploaded for segmentation. */
 export async function cutOutClothing(file: File) {
   try {
@@ -116,9 +145,10 @@ export async function cutOutClothing(file: File) {
       90000,
     );
     const cutout = await shrinkPng(blob);
-    if (cutout) return cutout;
+    if (cutout) return trimToGarment(cutout);
   } catch {
     // The model can fail on a phone. A local backdrop sample still keeps the photo here.
   }
-  return backdropCutout(file);
+  const fallback = await backdropCutout(file);
+  return fallback ? trimToGarment(fallback) : null;
 }

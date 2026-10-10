@@ -61,36 +61,51 @@ export function OutfitModel({ outfit, compact = false }: { outfit: OutfitDto; co
   const fill = `model-fill-${rawId}`;
   const pieces = [...outfit.items].sort((a, b) => ORDER.indexOf(zoneFor(a)) - ORDER.indexOf(zoneFor(b)));
   const label = pieces.map((item) => item.name).join(", ");
+  const glow = `model-glow-${rawId}`;
+  const limb = `model-limb-${rawId}`;
   return (
     <figure className={`mannequin${compact ? " compact" : ""}`} data-testid="outfit-model" aria-label={label ? `On model: ${label}` : "On model"}>
-      <svg viewBox="0 0 200 360" aria-hidden="true">
+      <svg viewBox="0 0 200 400" aria-hidden="true">
         <defs>
-          <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#b7b0ee" />
-            <stop offset="45%" stopColor="#6a62a8" />
-            <stop offset="100%" stopColor="#241f4a" />
+          <linearGradient id={fill} x1="30%" y1="0%" x2="70%" y2="100%">
+            <stop offset="0%" stopColor="#f4f0ff" />
+            <stop offset="32%" stopColor="#b7aee6" />
+            <stop offset="72%" stopColor="#6d64b0" />
+            <stop offset="100%" stopColor="#241e4c" />
           </linearGradient>
+          <linearGradient id={limb} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#d4cbf4" />
+            <stop offset="100%" stopColor="#3a346c" />
+          </linearGradient>
+          <radialGradient id={glow} cx="50%" cy="42%" r="48%">
+            <stop offset="0%" stopColor="#d7d0ff" stopOpacity="0.72" />
+            <stop offset="48%" stopColor="#8a7cff" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#8a7cff" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        <circle cx="28" cy="48" r="1.2" fill="#fff" opacity="0.75" />
-        <circle cx="168" cy="36" r="1" fill="#7aefff" opacity="0.8" />
-        <circle cx="176" cy="92" r="1.3" fill="#fff" opacity="0.55" />
-        <circle cx="22" cy="120" r="0.9" fill="#ffc56d" opacity="0.7" />
-        <path d="M66 112C40 136 34 176 48 204" fill="none" stroke={`url(#${fill})`} strokeWidth="13" strokeLinecap="round" />
-        <path d="M134 112C160 136 166 176 152 204" fill="none" stroke={`url(#${fill})`} strokeWidth="13" strokeLinecap="round" />
-        <path d="M86 188C78 236 72 286 68 312" fill="none" stroke="#5a538c" strokeWidth="18" strokeLinecap="round" />
-        <path d="M114 188C122 236 128 286 132 312" fill="none" stroke="#5a538c" strokeWidth="18" strokeLinecap="round" />
-        <ellipse cx="100" cy="48" rx="22" ry="26" fill={`url(#${fill})`} stroke="#d9d0ff" strokeWidth="1.6" />
-        <path d="M84 48h32" stroke="#7aefff" strokeWidth="2.2" strokeLinecap="round" opacity="0.9" />
-        <rect x="93" y="70" width="14" height="16" rx="4" fill="#3c356c" />
-        <path d="M62 104c-6 28-2 64 16 82h44c18-18 22-54 16-82-14 14-62 14-76 0z" fill={`url(#${fill})`} stroke="#d9d0ff" strokeWidth="1.5" />
-        <ellipse cx="66" cy="318" rx="16" ry="7" fill="#2a2454" stroke="#d9d0ff" strokeWidth="1.1" />
-        <ellipse cx="136" cy="318" rx="16" ry="7" fill="#2a2454" stroke="#d9d0ff" strokeWidth="1.1" />
+        <ellipse cx="100" cy="200" rx="86" ry="156" fill={`url(#${glow})`} />
+        <circle cx="26" cy="36" r="1.1" fill="#fff" opacity="0.75" />
+        <circle cx="174" cy="58" r="1" fill="#9aefff" opacity="0.8" />
+        <circle cx="18" cy="96" r="0.8" fill="#ffd59a" opacity="0.7" />
+        <path d="M74 208c-16 48-18 110-8 152h28c6-42 8-104 14-152-8 6-26 6-34 0z" fill={`url(#${limb})`} />
+        <path d="M126 208c16 48 18 110 8 152h-28c-6-42-8-104-14-152 8 6 26 6 34 0z" fill={`url(#${limb})`} />
+        <ellipse cx="78" cy="372" rx="22" ry="10" fill="#2c2758" />
+        <ellipse cx="122" cy="372" rx="22" ry="10" fill="#2c2758" />
+        <path d="M52 114c-22 28-26 78-18 118 4 22-6 36-8 48 18 8 30-8 32-26 6-36 16-78 34-104 6-10-8-22-40-36z" fill={`url(#${limb})`} />
+        <path d="M148 114c22 28 26 78 18 118-4 22 6 36 8 48-18 8-30-8-32-26-6-36-16-78-34-104-6-10 8-22 40-36z" fill={`url(#${limb})`} />
+        <path d="M56 112c-16 10-18 42-10 74 8 32 24 52 36 60h36c12-8 28-28 36-60 8-32 6-64-10-74-18 18-70 18-88 0z" fill={`url(#${fill})`} />
+        <path d="M88 78h24c4 0 8 6 8 14s-6 16-8 16H88c-2 0-8-8-8-16s4-14 8-14z" fill={`url(#${fill})`} />
+        <ellipse cx="100" cy="50" rx="28" ry="32" fill={`url(#${fill})`} />
+        <ellipse cx="100" cy="38" rx="16" ry="10" fill="#fff" opacity="0.22" />
       </svg>
       {pieces.map((item) => {
         const zone = zoneFor(item);
         const src = item.cutoutUrl || "";
-        if (src) return <img key={item.id} className={`mannequin-piece ${ZONE[zone]}`} src={src} alt="" />;
-        return <span key={item.id} className={`mannequin-piece mannequin-swatch ${ZONE[zone]}`} style={{ background: ink(item.colors) }} />;
+        return (
+          <div key={item.id} className={`mannequin-zone ${ZONE[zone]}`}>
+            {src ? <img src={src} alt="" /> : <span className="mannequin-swatch" style={{ background: ink(item.colors) }} />}
+          </div>
+        );
       })}
     </figure>
   );

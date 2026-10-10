@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
-import { classifyPhoto, colorsInPhoto } from "./clothing-detect";
+import { classifyPhoto, classifyPresentation, colorsInPhoto } from "./clothing-detect";
 import { cutOutClothing } from "./clothing-cutout";
 import { OutfitModel } from "./outfit-model";
 import { api } from "@/lib/client";
-import { detectionFromScores, matchCategory } from "@/lib/closet-detect";
+import { detectionFromScores, matchCategory, wornByPerson, type LabelScore } from "@/lib/closet-detect";
 import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
 import type { ClosetCategoryDto, ClosetItemDto, ClosetSlotName, OutfitDto, OutfitSlotName } from "@/lib/types";
 import { Sheet } from "./sheet";
@@ -60,6 +60,7 @@ type PendingPiece = {
   tags: string[];
   inLaundry: boolean;
   lowConfidence: boolean;
+  worn: boolean;
 };
 
 function blobOf(canvas: HTMLCanvasElement, type: string, quality: number) {
@@ -192,6 +193,7 @@ export function ClosetView() {
           tags: ["casual"],
           inLaundry: false,
           lowConfidence: false,
+          worn: false,
         });
       } catch {
         toast("Couldn't read one of those photos");
@@ -210,15 +212,30 @@ export function ClosetView() {
       }
     }
     for (const piece of prepared) {
+      let scores: LabelScore[] | null = null;
+      let worn = false;
+      try {
+        scores = await classifyPhoto(piece.file);
+        try {
+          worn = wornByPerson(await classifyPresentation(piece.file));
+        } catch {
+          worn = false;
+        }
+      } catch {
+        scores = null;
+      }
+      setPending((rows) => rows.map((row) => (row.id === piece.id ? { ...row, status: "cutting", worn } : row)));
+      const cutout = await cutOutClothing(piece.file);
+      const colors = cutout ? await colorsInPhoto(cutout) : [];
       let next: Partial<PendingPiece> = {
         name: "New item",
         categoryId: categories[0]?.id ?? "",
         categoryName: categories[0]?.name ?? "",
+        colors,
         lowConfidence: true,
+        worn,
       };
-      try {
-        const colors = await colorsInPhoto(piece.file);
-        const scores = await classifyPhoto(piece.file);
+      if (scores) {
         const guess = detectionFromScores(scores, colors);
         const category = matchCategory(categories, guess.category, guess.slot);
         const tags = guess.tags.filter((tag): tag is (typeof TAGS)[number] => (TAGS as readonly string[]).includes(tag));
@@ -230,19 +247,12 @@ export function ClosetView() {
           warmth: guess.warmth,
           tags,
           lowConfidence: guess.lowConfidence,
-        };
-      } catch {
-        next = {
-          name: "New item",
-          categoryId: categories[0]?.id ?? "",
-          categoryName: categories[0]?.name ?? "",
-          lowConfidence: true,
+          worn,
         };
       }
-      setPending((rows) => rows.map((row) => row.id === piece.id ? { ...row, ...next, status: "cutting" } : row));
-      const cutout = await cutOutClothing(piece.file);
-      const cutoutPreviewUrl = cutout ? URL.createObjectURL(cutout) : undefined;
-      setPending((rows) => rows.map((row) => row.id === piece.id ? { ...row, ...next, status: "ready", cutout, cutoutPreviewUrl } : row));
+      const modelCutout = worn ? null : cutout;
+      const cutoutPreviewUrl = modelCutout ? URL.createObjectURL(modelCutout) : undefined;
+      setPending((rows) => rows.map((row) => (row.id === piece.id ? { ...row, ...next, status: "ready", cutout: modelCutout, cutoutPreviewUrl } : row)));
     }
   }
 
@@ -472,6 +482,7 @@ export function ClosetView() {
         <button className="btn-ghost" type="button" data-testid="closet-upload" disabled={busy} onClick={() => libraryRef.current?.click()}>Library</button>
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => void upload(event.target.files)} />
         <input ref={libraryRef} type="file" accept="image/*" multiple hidden onChange={(event) => void upload(event.target.files)} />
+        <p className="faint closet-upload-tip">Best results: lay the item flat or hang it, one item per photo, plain background.</p>
       </div>
 
       {pending.length ? (
@@ -484,7 +495,7 @@ export function ClosetView() {
             {pending.map((piece) => (
               <button
                 key={piece.id}
-                className={`closet-tile${piece.lowConfidence && piece.status === "ready" ? " flagged" : ""}`}
+                className={`closet-tile${(piece.lowConfidence || piece.worn) && piece.status === "ready" ? " flagged" : ""}`}
                 type="button"
                 data-testid="review-item"
                 data-confidence={piece.lowConfidence ? "low" : "ok"}
@@ -493,7 +504,7 @@ export function ClosetView() {
                 <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
                 <span className="closet-tile-copy">
                   <strong>{piece.name}</strong>
-                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
+                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.worn ? <span className="review-flag" data-testid="review-flag">Best with a flat photo of just the clothing</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
                 </span>
               </button>
             ))}

@@ -1,6 +1,13 @@
 "use client";
 
-import { CLIP_HYPOTHESIS, CLIP_LABELS, dominantColors, type LabelScore } from "@/lib/closet-detect";
+import {
+  CLIP_HYPOTHESIS,
+  CLIP_LABELS,
+  dominantColors,
+  PRESENTATION_HYPOTHESIS,
+  PRESENTATION_LABELS,
+  type LabelScore,
+} from "@/lib/closet-detect";
 
 type WorkerResponse = { id: string; scores?: LabelScore[]; error?: string };
 
@@ -29,7 +36,7 @@ function getWorker() {
   return worker;
 }
 
-function classifyInBrowser(file: File) {
+function classifyInBrowser(file: File, labels: string[], hypothesis: string) {
   const run = chain.then(async () => {
     const buffer = await file.arrayBuffer();
     const id = String(++nextId);
@@ -48,7 +55,7 @@ function classifyInBrowser(file: File) {
           reject(err);
         },
       });
-      getWorker().postMessage({ id, buffer, mime: file.type || "image/jpeg", labels: CLIP_LABELS, hypothesis: CLIP_HYPOTHESIS }, [buffer]);
+      getWorker().postMessage({ id, buffer, mime: file.type || "image/jpeg", labels, hypothesis }, [buffer]);
     });
     return scores;
   });
@@ -59,9 +66,13 @@ function classifyInBrowser(file: File) {
   return run;
 }
 
-async function classifyOnServer(file: File) {
+async function classifyOnServer(file: File, labels: string[], hypothesis: string) {
   const body = new FormData();
   body.set("file", file);
+  if (hypothesis !== CLIP_HYPOTHESIS) {
+    body.set("labels", labels.join("\n"));
+    body.set("hypothesis", hypothesis);
+  }
   const response = await fetch("/api/closet/detect", { method: "POST", body, credentials: "same-origin" });
   if (response.status === 401) {
     window.location.href = "/login";
@@ -89,14 +100,23 @@ export async function colorsInPhoto(file: File) {
   return dominantColors(ctx.getImageData(0, 0, edge, edge).data, edge, edge);
 }
 
-/** CLIP in the browser, including iPhone. If that model cannot load, the photo goes to Orbit's own server and nowhere else. */
-export async function classifyPhoto(file: File) {
+async function classify(file: File, labels: string[], hypothesis: string) {
   if (!browserFailed && typeof Worker !== "undefined") {
     try {
-      return await classifyInBrowser(file);
+      return await classifyInBrowser(file, labels, hypothesis);
     } catch {
       browserFailed = true;
     }
   }
-  return classifyOnServer(file);
+  return classifyOnServer(file, labels, hypothesis);
+}
+
+/** CLIP in the browser, including iPhone. If that model cannot load, the photo goes to Orbit's own server and nowhere else. */
+export function classifyPhoto(file: File) {
+  return classify(file, CLIP_LABELS, CLIP_HYPOTHESIS);
+}
+
+/** "a person wearing clothes" against "clothing laid flat". The photo stays on the device. */
+export function classifyPresentation(file: File) {
+  return classify(file, PRESENTATION_LABELS, PRESENTATION_HYPOTHESIS);
 }

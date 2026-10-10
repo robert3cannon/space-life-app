@@ -10,20 +10,20 @@ async function load() {
     dtype: "q8",
     cache_dir: "/tmp/orbit-clip",
   });
-  return async (blob: Blob) => {
+  return async (blob: Blob, labels: string[], hypothesis: string) => {
     const image = await RawImage.fromBlob(blob);
-    const scores = await classifier(image, CLIP_LABELS, { hypothesis_template: CLIP_HYPOTHESIS });
+    const scores = await classifier(image, labels, { hypothesis_template: hypothesis });
     const rows = Array.isArray(scores[0]) ? [] : scores;
     return rows.map((row) => ({ label: String(row.label), score: Number(row.score) }));
   };
 }
 
 /** Runs CLIP in this Node process. The photo is not sent to a vision API. */
-export async function classifyClothingImage(bytes: Uint8Array, mime: string) {
+export async function classifyClothingImage(bytes: Uint8Array, mime: string, labels = CLIP_LABELS, hypothesis = CLIP_HYPOTHESIS) {
   loading ??= load();
   const classify = await loading;
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);
   const blob = new Blob([copy], { type: mime || "image/jpeg" });
-  return classify(blob);
+  return classify(blob, labels, hypothesis);
 }

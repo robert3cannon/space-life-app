@@ -26,6 +26,12 @@ export const FINE_LABELS: { label: string; category: string; slot: "top" | "bott
 export const CLIP_LABELS = FINE_LABELS.map((row) => row.label);
 export const CLIP_HYPOTHESIS = "a photo of a {}";
 
+/** Separate from clothing labels so a worn photo cannot win the category. */
+export const PERSON_LABEL = "a person wearing clothes";
+export const FLAT_LABEL = "clothing laid flat";
+export const PRESENTATION_LABELS = [PERSON_LABEL, FLAT_LABEL];
+export const PRESENTATION_HYPOTHESIS = "a photo of {}";
+
 const NAMED_COLORS: { name: string; r: number; g: number; b: number }[] = [
   { name: "black", r: 18, g: 18, b: 18 },
   { name: "charcoal", r: 58, g: 58, b: 62 },
@@ -67,24 +73,75 @@ export type ClothingGuess = {
   tags: string[];
 };
 
-type Pixel = { r: number; g: number; b: number };
+type Lab = { L: number; a: number; b: number };
+type Sample = { r: number; g: number; b: number; a: number; L: number; aLab: number; bLab: number };
 
-function dist(a: Pixel, b: Pixel) {
-  const dr = a.r - b.r;
-  const dg = a.g - b.g;
-  const db = a.b - b.b;
-  return dr * dr + dg * dg + db * db;
+const NAMED_LAB = NAMED_COLORS.map((color) => ({ name: color.name, ...rgbToLab(color.r, color.g, color.b) }));
+
+function clampChannel(value: number) {
+  return Math.max(0, Math.min(255, value));
 }
 
-function pixelAt(data: ArrayLike<number>, offset: number): Pixel {
-  return { r: data[offset] ?? 0, g: data[offset + 1] ?? 0, b: data[offset + 2] ?? 0 };
+function pivot(channel: number) {
+  const x = channel / 255;
+  return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+}
+
+function rgbToLab(r: number, g: number, b: number): Lab {
+  const red = pivot(r);
+  const green = pivot(g);
+  const blue = pivot(b);
+  const x = (red * 0.4124564 + green * 0.3575761 + blue * 0.1804375) / 0.95047;
+  const y = red * 0.2126729 + green * 0.7151522 + blue * 0.072175;
+  const z = (red * 0.0193339 + green * 0.119192 + blue * 0.9503041) / 1.08883;
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787037 * t + 16 / 116);
+  const fx = f(x);
+  const fy = f(y);
+  const fz = f(z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+function labDistance(left: Lab, right: Lab) {
+  const dL = left.L - right.L;
+  const da = left.a - right.a;
+  const db = left.b - right.b;
+  return dL * dL + da * da + db * db;
+}
+
+function average(values: number[]) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/** Skin-like pixels are left out of the garment color. Beige and khaki stay, because their a* is near zero. */
+function isSkinTone(r: number, g: number, b: number) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max - min < 18 || r < 140 || g < 80 || b < 50 || r <= g || g < b - 5) return false;
+  const lab = rgbToLab(r, g, b);
+  const chroma = Math.hypot(lab.a, lab.b);
+  return lab.L >= 45 && lab.L <= 88 && lab.a >= 8 && lab.a <= 28 && lab.b >= 8 && lab.b <= 32 && chroma >= 16 && chroma <= 40;
 }
 
 export function nearestColorName(r: number, g: number, b: number) {
-  let best = NAMED_COLORS[0];
+  const red = clampChannel(r);
+  const green = clampChannel(g);
+  const blue = clampChannel(b);
+  const lab = rgbToLab(red, green, blue);
+  const chroma = Math.hypot(lab.a, lab.b);
+  if (lab.a >= 18 && red > green + 18 && red > blue + 12 && red > 45) return lab.L < 34 ? "maroon" : "red";
+  if (lab.L > 30 && lab.L < 58 && lab.b <= -14 && lab.a < 12 && blue > red) return "denim";
+  if (lab.L <= 32 && lab.b <= -14 && chroma >= 16 && lab.a < 24) return "navy";
+  if (lab.L >= 18 && lab.L <= 42 && lab.b <= -6 && lab.b > -14 && chroma >= 7 && blue >= red + 8 && blue >= green + 8) return "navy";
+  if (lab.L >= 90 && chroma <= 9) return "white";
+  if (lab.L >= 86 && chroma <= 18 && lab.b >= 6 && lab.a < 6) return "cream";
+  if (lab.L >= 72 && lab.L < 88 && lab.b >= 12 && chroma >= 12 && chroma <= 24 && lab.a < 8) return "beige";
+  if (lab.L <= 18 && chroma <= 12) return "black";
+  if (lab.L <= 32 && chroma <= 8) return lab.L <= 20 ? "black" : "charcoal";
+  let best = NAMED_LAB[0];
   let bestD = Infinity;
-  for (const color of NAMED_COLORS) {
-    const score = dist({ r, g, b }, color);
+  for (const color of NAMED_LAB) {
+    const score = labDistance(lab, color);
     if (score < bestD) {
       bestD = score;
       best = color;
@@ -93,16 +150,12 @@ export function nearestColorName(r: number, g: number, b: number) {
   return best.name;
 }
 
-function average(values: number[]) {
-  if (!values.length) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function kmeans(pixels: Pixel[], k: number) {
-  if (!pixels.length) return [] as { color: Pixel; count: number }[];
-  const seeds: Pixel[] = [];
+function kmeans(pixels: Sample[], k: number) {
+  if (!pixels.length) return [] as { r: number; g: number; b: number; count: number }[];
+  const seeds = [];
   for (let index = 0; index < k; index += 1) {
-    seeds.push(pixels[Math.min(pixels.length - 1, Math.floor(((index + 0.5) * pixels.length) / k))]);
+    const pixel = pixels[Math.min(pixels.length - 1, Math.floor(((index + 0.5) * pixels.length) / k))];
+    seeds.push({ L: pixel.L, a: pixel.aLab, b: pixel.bLab, r: pixel.r, g: pixel.g, bRgb: pixel.b });
   }
   let assign = new Array<number>(pixels.length).fill(0);
   for (let iter = 0; iter < 8; iter += 1) {
@@ -110,7 +163,7 @@ function kmeans(pixels: Pixel[], k: number) {
       let best = 0;
       let bestD = Infinity;
       seeds.forEach((seed, index) => {
-        const score = dist(pixel, seed);
+        const score = labDistance({ L: pixel.L, a: pixel.aLab, b: pixel.bLab }, seed);
         if (score < bestD) {
           bestD = score;
           best = index;
@@ -122,47 +175,97 @@ function kmeans(pixels: Pixel[], k: number) {
       const group = pixels.filter((_, pixelIndex) => assign[pixelIndex] === index);
       if (!group.length) continue;
       seeds[index] = {
+        L: average(group.map((pixel) => pixel.L)),
+        a: average(group.map((pixel) => pixel.aLab)),
+        b: average(group.map((pixel) => pixel.bLab)),
         r: average(group.map((pixel) => pixel.r)),
         g: average(group.map((pixel) => pixel.g)),
-        b: average(group.map((pixel) => pixel.b)),
+        bRgb: average(group.map((pixel) => pixel.b)),
       };
     }
   }
   return seeds
-    .map((color, index) => ({ color, count: assign.filter((value) => value === index).length }))
+    .map((seed, index) => ({ r: seed.r, g: seed.g, b: seed.bRgb, count: assign.filter((value) => value === index).length }))
     .filter((row) => row.count > 0)
     .sort((a, b) => b.count - a.count);
 }
 
-/** Dominant garment colors from RGBA pixels. A plain backdrop is ignored when the corners agree. */
+function sampleAt(data: ArrayLike<number>, index: number): Sample {
+  const offset = index * 4;
+  const r = data[offset] ?? 0;
+  const g = data[offset + 1] ?? 0;
+  const b = data[offset + 2] ?? 0;
+  const lab = rgbToLab(r, g, b);
+  return { r, g, b, a: data[offset + 3] ?? 0, L: lab.L, aLab: lab.a, bLab: lab.b };
+}
+
+/** Tight box around pixels clearer than half opacity. */
+export function foregroundBounds(data: ArrayLike<number>, width: number, height: number) {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  const total = width * height;
+  for (let index = 0; index < total; index += 1) {
+    if ((data[index * 4 + 3] ?? 0) <= 127) continue;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  if (maxX < 0) return null;
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+/**
+ * Dominant garment colors from a background-removed cutout.
+ * Only pixels with alpha > 0.5 count. Skin and a soft backdrop halo are left out.
+ * Clusters are compared in LAB, then named with cutoffs for white, beige, navy, black, and red.
+ */
 export function dominantColors(data: ArrayLike<number>, width: number, height: number) {
   const total = Math.max(1, width * height);
-  const stride = total > 900 ? 4 : 1;
-  const samples: Pixel[] = [];
-  for (let index = 0; index < total; index += stride) samples.push(pixelAt(data, index * 4));
-  const corners = [
-    pixelAt(data, 0),
-    pixelAt(data, (width - 1) * 4),
-    pixelAt(data, (height - 1) * width * 4),
-    pixelAt(data, (total - 1) * 4),
-  ];
-  const corner = {
-    r: average(corners.map((pixel) => pixel.r)),
-    g: average(corners.map((pixel) => pixel.g)),
-    b: average(corners.map((pixel) => pixel.b)),
-  };
-  const cornersAgree = corners.every((pixel) => dist(pixel, corner) < 40 * 40);
-  const foreground = cornersAgree ? samples.filter((pixel) => dist(pixel, corner) >= 45 * 45) : samples;
-  const usable = foreground.length >= Math.max(12, samples.length * 0.12) ? foreground : samples;
+  const stride = total > 8000 ? 2 : 1;
+  const foreground: Sample[] = [];
+  const fringe: Sample[] = [];
+  for (let index = 0; index < total; index += stride) {
+    const pixel = sampleAt(data, index);
+    if (pixel.a > 127) foreground.push(pixel);
+    else if (pixel.a > 16) fringe.push(pixel);
+  }
+  if (!foreground.length) return [];
+  const withoutSkin = foreground.filter((pixel) => !isSkinTone(pixel.r, pixel.g, pixel.b));
+  let usable = withoutSkin.length >= Math.max(12, foreground.length * 0.35) ? withoutSkin : foreground;
+  if (fringe.length >= 8) {
+    const backdrop = {
+      L: average(fringe.map((pixel) => pixel.L)),
+      a: average(fringe.map((pixel) => pixel.aLab)),
+      b: average(fringe.map((pixel) => pixel.bLab)),
+    };
+    const away = usable.filter((pixel) => pixel.a >= 210 || labDistance({ L: pixel.L, a: pixel.aLab, b: pixel.bLab }, backdrop) > 16 * 16);
+    if (away.length >= Math.max(12, usable.length * 0.4)) usable = away;
+  }
   const clusters = kmeans(usable, Math.min(3, usable.length));
-  const names: string[] = [];
+  const counts = new Map<string, number>();
   for (const cluster of clusters) {
-    if (names.length && cluster.count < usable.length * 0.18) continue;
-    const name = nearestColorName(cluster.color.r, cluster.color.g, cluster.color.b);
-    if (!names.includes(name)) names.push(name);
+    const name = nearestColorName(cluster.r, cluster.g, cluster.b);
+    counts.set(name, (counts.get(name) ?? 0) + cluster.count);
+  }
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const names: string[] = [];
+  for (const [name, count] of ranked) {
+    if (names.length && count < usable.length * 0.18) continue;
+    names.push(name);
     if (names.length === 2) break;
   }
   return names;
+}
+
+export function wornByPerson(scores: LabelScore[]) {
+  const person = scores.find((row) => row.label === PERSON_LABEL)?.score ?? 0;
+  const flat = scores.find((row) => row.label === FLAT_LABEL)?.score ?? 0;
+  return person > flat && person > 0;
 }
 
 export function capitalizeColor(color: string) {
