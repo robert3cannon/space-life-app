@@ -62,6 +62,7 @@ export function WorkoutDetail({ id }: { id: string }) {
           <h1 className="display">{data.title}</h1>
           <p className="sub">
             {data.scheduledAt ? `${formatLongDate(eventDay(data.scheduledAt))} · ${formatTime(data.scheduledAt)}` : "Unscheduled"}
+            {data.durationSeconds ? ` · ${formatDuration(data.durationSeconds)}` : ""}
           </p>
           <BodyMap primary={data.muscles.primary} secondary={data.muscles.secondary} label={`${data.title} muscles`} />
           <div className="stack" style={{ marginTop: 16 }}>

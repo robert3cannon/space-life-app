@@ -88,6 +88,29 @@ export function formatHours(minutes: number) {
   return `${hours}h ${remain}m`;
 }
 
+export function formatExerciseLog(
+  name: string,
+  sets: Array<{ reps: number | null; weight: number | null; weightUnit: string; durationSeconds: number | null }>,
+) {
+  if (!sets.length) return name;
+  const dose = (set: (typeof sets)[number]) =>
+    set.durationSeconds != null && set.reps == null ? formatDuration(set.durationSeconds) : set.reps != null ? String(set.reps) : "";
+  const load = (set: (typeof sets)[number]) => (set.weight == null ? "bodyweight" : formatWeight(set.weight, set.weightUnit));
+  const first = sets[0];
+  const same = sets.every(
+    (set) =>
+      set.reps === first.reps &&
+      set.weight === first.weight &&
+      set.durationSeconds === first.durationSeconds &&
+      set.weightUnit === first.weightUnit,
+  );
+  if (same) {
+    return `${name} · ${[String(sets.length), dose(first), load(first)].filter(Boolean).join(" × ")}`;
+  }
+  const parts = sets.map((set) => [dose(set), load(set)].filter(Boolean).join(" × "));
+  return `${name} · ${parts.join(", ")}`;
+}
+
 export function formatDuration(seconds: number | null) {
   if (seconds == null) return "";
   if (seconds < 60) return `${seconds}s`;

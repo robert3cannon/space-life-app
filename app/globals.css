@@ -871,7 +871,7 @@ a.card.circuit-step {
   font-family: Orbitron, Outfit, sans-serif;
   font-size: 13px;
 }
-.player-title { font-size: clamp(22px, 6vw, 28px); }
+.player-title { font-size: clamp(22px, 6vw, 28px); overflow-wrap: anywhere; min-width: 0; }
 .player-bar {
   display: flex;
   align-items: center;
@@ -884,7 +884,7 @@ a.card.circuit-step {
   gap: 8px;
   min-width: 0;
 }
-.player-sound .chip { min-height: 36px; }
+.player-sound .chip { min-height: 44px; }
 .sound-volume { width: 88px; display: flex; align-items: center; }
 .sound-volume input[type="range"] { width: 100%; accent-color: #7aefff; }
 .timer-readout {
@@ -923,6 +923,17 @@ a.card.circuit-step {
 .up-next { margin-top: 12px; }
 .up-next .kicker { margin-bottom: 4px; }
 .up-next strong, .up-next .faint { display: block; }
+.exercise-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.exercise-card .exercise-open { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.exercise-card strong, .picker-row strong { overflow-wrap: anywhere; }
+.btn.inline, .btn-ghost.inline { width: auto; flex: 0 0 auto; }
+.inline-actions { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.picker-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.picker-row > div { flex: 1 1 auto; min-width: 0; }
+.picker-row .row { flex-wrap: wrap; min-width: 0; }
+.session-log { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.session-log .field { margin-bottom: 0; min-width: 0; }
+.display { overflow-wrap: anywhere; }
 
 @media (prefers-reduced-motion: reduce) {
   .stars, .planet, .skel, .demo-b, .sheet, .streak-pop, .check-mark { animation: none; }

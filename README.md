@@ -471,6 +471,43 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
   "$BASE/api/bot/circuits/lower-abs/schedule"
 ```
 
+### Custom workouts and logged sessions
+
+A saved workout is a named straight-set session (every set of an exercise, then the next exercise). It is not a circuit and it is not a planned day until you schedule it. Logging a finished single exercise or custom workout creates a done workout, so it shows in history and counts toward the weekly muscle map and a workout habit.
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/api/bot/routines` | Saved custom workouts, newest first |
+| POST | `/api/bot/routines` | Save one. Body is `{ "title", "restSeconds", "exercises" }` |
+| GET | `/api/bot/routines/:id` | One saved workout |
+| PATCH | `/api/bot/routines/:id` | Replace the title, rest, and exercises |
+| DELETE | `/api/bot/routines/:id` | Delete a saved workout |
+| POST | `/api/bot/routines/:id/schedule` | Plan it on a day. Body is `{ "date": "YYYY-MM-DD", "time": "HH:MM" }` |
+| GET | `/api/bot/sessions` | Completed sessions, newest first. Optional `?limit=` (1–100) |
+| POST | `/api/bot/sessions` | Log a finished session |
+| GET | `/api/bot/sessions/:id` | One completed session |
+
+Each exercise on a saved workout is `{ "libraryId", "name", "sets", "reps" or "durationSeconds", "weight", "weightUnit" }`. Use reps or a hold time, not both. `weight` can be null for bodyweight. A logged session uses the same set shape as a planned workout (`reps`, `weight`, `durationSeconds`) and may differ per set. `durationSeconds` on the session is how long the workout took.
+
+The signed-in app uses the same paths under `/api/routines` and `/api/sessions`.
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Push","restSeconds":60,"exercises":[{"libraryId":"Pushups","name":"Pushups","sets":3,"reps":12,"weight":null},{"libraryId":"Alternate_Hammer_Curl","name":"Alternate Hammer Curl","sets":3,"reps":8,"weight":15}]}' \
+  "$BASE/api/bot/routines"
+
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-12","time":"18:00"}' \
+  "$BASE/api/bot/routines/ROUTINE_ID/schedule"
+
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Pushups","durationSeconds":480,"exercises":[{"name":"Pushups","libraryId":"Pushups","sets":[{"reps":12},{"reps":10}]}]}' \
+  "$BASE/api/bot/sessions"
+```
+
 ### Reminders
 
 | Method | Path | |

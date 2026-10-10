@@ -1,5 +1,5 @@
 import { boolean, doublePrecision, integer, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
-import type { AppSettings } from "../types";
+import type { AppSettings, RoutineExercise } from "../types";
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -64,6 +64,16 @@ export const workouts = pgTable("workouts", {
   notes: text("notes"),
   reminderMinutesBefore: integer("reminder_minutes_before"),
   healthKey: text("health_key").unique(),
+  durationSeconds: integer("duration_seconds"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const savedWorkouts = pgTable("saved_workouts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  restSeconds: integer("rest_seconds").notNull().default(60),
+  exercises: jsonb("exercises").$type<RoutineExercise[]>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });

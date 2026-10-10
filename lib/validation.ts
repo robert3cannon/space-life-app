@@ -101,6 +101,42 @@ export const circuitCompleteSchema = z.object({
   rounds: z.number().int().min(1).max(5).optional(),
 });
 
+const routineExerciseSchema = z
+  .object({
+    libraryId: z.string().trim().min(1).max(160).nullable().optional(),
+    name: z.string().trim().min(1).max(120),
+    sets: z.number().int().min(1).max(30),
+    reps: z.number().int().min(0).max(1000).nullable().optional(),
+    durationSeconds: z.number().int().min(1).max(60 * 60).nullable().optional(),
+    weight: z.number().min(0).max(5000).nullable().optional(),
+    weightUnit: z.enum(["lb", "kg"]).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const reps = value.reps != null;
+    const hold = value.durationSeconds != null;
+    if (reps === hold) {
+      ctx.addIssue({ code: "custom", message: "Use reps or a hold time" });
+    }
+  });
+
+export const routineWriteSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  restSeconds: z.number().int().min(0).max(600).optional(),
+  exercises: z.array(routineExerciseSchema).min(1).max(40),
+});
+
+export const routineScheduleSchema = z.object({
+  date: dateField,
+  time: timeField,
+});
+
+export const sessionLogSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  durationSeconds: z.number().int().min(0).max(24 * 60 * 60).optional(),
+  startedAt: z.string().min(1).optional(),
+  exercises: z.array(exerciseSchema.extend({ sets: z.array(setSchema).min(1).max(30) })).min(1).max(40),
+});
+
 export const workoutCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
   scheduledAt: z.string().min(1).nullable().optional(),
@@ -298,6 +334,9 @@ export type MealPatch = z.infer<typeof mealPatchSchema>;
 export type MealItemPatch = z.infer<typeof mealItemPatchSchema>;
 export type CircuitSchedule = z.infer<typeof circuitScheduleSchema>;
 export type CircuitComplete = z.infer<typeof circuitCompleteSchema>;
+export type RoutineWrite = z.infer<typeof routineWriteSchema>;
+export type RoutineSchedule = z.infer<typeof routineScheduleSchema>;
+export type SessionLog = z.infer<typeof sessionLogSchema>;
 export type WorkoutCreate = z.infer<typeof workoutCreateSchema>;
 export type WorkoutPatch = z.infer<typeof workoutPatchSchema>;
 export type ExerciseInput = z.infer<typeof exerciseSchema>;

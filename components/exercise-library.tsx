@@ -7,6 +7,7 @@ import { muscleLabel } from "@/lib/muscles";
 import type { AppSettings } from "@/lib/types";
 import { useLoad } from "./use-load";
 import { BodyMap } from "./body-map";
+import { ExerciseSetup } from "./exercise-setup";
 import { RatingDots } from "./rating-dots";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
@@ -17,6 +18,7 @@ type Row = {
   name: string;
   equipment: string;
   level: string;
+  mechanic?: string;
   primary: string[];
   secondary: string[];
   ratings?: Record<string, { score: number; why: string }>;
@@ -29,6 +31,7 @@ export function ExerciseLibrary() {
   const addTo = params.get("addTo");
   const [q, setQ] = useState("");
   const [equipment, setEquipment] = useState<string>("");
+  const [starting, setStarting] = useState<Row | null>(null);
   const settings = useLoad<AppSettings>("/api/settings");
   const gear = settings.data?.equipment.gear ?? ["bodyweight", "pushup_board", "dumbbells"];
   const chips = [
@@ -117,27 +120,33 @@ export function ExerciseLibrary() {
               const primaryHit = muscle && exercise.primary.includes(muscle);
               const rating = muscle ? exercise.ratings?.[muscle] : undefined;
               return (
-                <Link key={exercise.id} href={href} className="card" style={{ display: "block" }}>
-                  <div className="spread">
-                    <strong>{exercise.name}</strong>
-                    {rating ? <RatingDots score={rating.score} label={`${rating.score} out of 5 for ${muscleLabel(muscle ?? "")}`} /> : (
-                      <span className="pill" data-type="workout">{exercise.equipment}</span>
-                    )}
-                  </div>
-                  <p className="faint" style={{ margin: "6px 0 0" }}>
-                    {rating ? `${primaryHit ? "Primary" : "Secondary"} · ${muscleLabel(muscle ?? "")}` : exercise.primary.map(muscleLabel).join(", ")}
-                    {!rating && exercise.secondary.length ? ` · also ${exercise.secondary.slice(0, 3).map(muscleLabel).join(", ")}` : ""}
-                  </p>
-                  {rating ? <p className="faint" style={{ margin: "4px 0 0" }}>{rating.why}</p> : null}
-                  {gear.includes("pushup_board") && BOARD_IDS.has(exercise.id) ? (
-                    <p className="station-note" style={{ margin: "4px 0 0" }}>Push-up board hand positions are on the detail page.</p>
-                  ) : null}
-                </Link>
+                <article key={exercise.id} className="card exercise-card">
+                  <Link href={href} className="exercise-open">
+                    <div className="spread">
+                      <strong>{exercise.name}</strong>
+                      {rating ? <RatingDots score={rating.score} label={`${rating.score} out of 5 for ${muscleLabel(muscle ?? "")}`} /> : (
+                        <span className="pill" data-type="workout">{exercise.equipment}</span>
+                      )}
+                    </div>
+                    <p className="faint" style={{ margin: "6px 0 0" }}>
+                      {rating ? `${primaryHit ? "Primary" : "Secondary"} · ${muscleLabel(muscle ?? "")}` : exercise.primary.map(muscleLabel).join(", ")}
+                      {!rating && exercise.secondary.length ? ` · also ${exercise.secondary.slice(0, 3).map(muscleLabel).join(", ")}` : ""}
+                    </p>
+                    {rating ? <p className="faint" style={{ margin: "4px 0 0" }}>{rating.why}</p> : null}
+                    {gear.includes("pushup_board") && BOARD_IDS.has(exercise.id) ? (
+                      <p className="station-note" style={{ margin: "4px 0 0" }}>Push-up board hand positions are on the detail page.</p>
+                    ) : null}
+                  </Link>
+                  <button className="btn" type="button" aria-label={`Start ${exercise.name}`} onClick={() => setStarting(exercise)}>
+                    Start
+                  </button>
+                </article>
               );
             })}
           </div>
         </>
       ) : null}
+      <ExerciseSetup exercise={starting} open={Boolean(starting)} onClose={() => setStarting(null)} />
     </main>
   );
 }

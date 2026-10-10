@@ -95,6 +95,7 @@ export function serializeWorkout(
     status: row.status as WorkoutDto["status"],
     notes: row.notes,
     reminderMinutesBefore: row.reminderMinutesBefore,
+    durationSeconds: row.durationSeconds,
     exercises,
     muscles: { primary: [], secondary: [] },
     createdAt: row.createdAt.toISOString(),

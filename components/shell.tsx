@@ -18,7 +18,7 @@ function isOn(pathname: string, href: string) {
     return ["/more", "/reminders", "/activity", "/settings", "/water", "/sleep", "/habits"].some((path) => pathname.startsWith(path));
   }
   if (href === "/workouts") {
-    return pathname.startsWith("/workouts") || pathname.startsWith("/exercises") || pathname.startsWith("/circuits");
+    return pathname.startsWith("/workouts") || pathname.startsWith("/exercises") || pathname.startsWith("/circuits") || pathname.startsWith("/sessions");
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

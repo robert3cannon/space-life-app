@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { muscleLabel } from "@/lib/muscles";
 import type { WorkoutDto } from "@/lib/types";
 import { BodyMap } from "./body-map";
+import { ExerciseSetup } from "./exercise-setup";
 import { RatingDots } from "./rating-dots";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
@@ -39,6 +40,7 @@ export function ExerciseDetail({ id }: { id: string }) {
   const { data, error, loading, reload } = useLoad<Detail>(`/api/exercises/${encodeURIComponent(id)}`);
   const board = useLoad<Board>("/api/workouts");
   const [saving, setSaving] = useState<string | null>(null);
+  const [setup, setSetup] = useState(false);
 
   async function add(workoutId: string) {
     setSaving(workoutId);
@@ -68,6 +70,9 @@ export function ExerciseDetail({ id }: { id: string }) {
         <>
           <p className="kicker" style={{ marginTop: 12 }}>{data.equipment} · {data.level}</p>
           <h1 className="display">{data.name}</h1>
+          <button className="btn" type="button" data-testid="start-exercise" style={{ margin: "12px 0" }} onClick={() => setSetup(true)}>
+            Do this exercise
+          </button>
           <Demo images={data.images} name={data.name} />
           <BodyMap primary={data.primary} secondary={data.secondary} label={`${data.name} muscles`} />
           <div className="stack" style={{ marginTop: 8 }}>
@@ -130,6 +135,7 @@ export function ExerciseDetail({ id }: { id: string }) {
               ))}
             </div>
           </section>
+          <ExerciseSetup exercise={data} open={setup} onClose={() => setSetup(false)} />
           <p className="faint" style={{ marginTop: 14 }}>
             Demo frames from {data.source.name} by {data.source.author}, {data.source.license}.{" "}
             <a href={data.source.url} target="_blank" rel="noreferrer">Source</a>

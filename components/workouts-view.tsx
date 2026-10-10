@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
-import { formatTime, formatWeight, formatDuration } from "@/lib/format";
+import { formatTime, formatWeight, formatDuration, formatExerciseLog, formatLongDate, eventDay } from "@/lib/format";
 import { muscleLabel } from "@/lib/muscles";
 import { getZonedParts } from "@/lib/time";
 import type { WorkoutDto } from "@/lib/types";
@@ -109,7 +109,8 @@ export function WorkoutsView() {
       <p className="sub">Plan the session, check off sets, and see which muscles you trained.</p>
       <div className="section-title" style={{ marginTop: 18 }}><h2>Suggested flows</h2></div>
       <p className="muted" style={{ marginTop: 0 }}>Home circuits from the library. Tap through, or save one to a day.</p>
-      <Link href="/circuits" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0 10px" }}>Circuits</Link>
+      <Link href="/workouts/quick" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0 10px" }}>Quick workout</Link>
+      <Link href="/circuits" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "0 0 10px" }}>Circuits</Link>
       <Link href="/exercises" className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>Exercise library</Link>
       {coverage.data ? (
         <section className="card" style={{ marginBottom: 16 }}>
@@ -138,7 +139,7 @@ export function WorkoutsView() {
           <div className="section-title"><h2>History</h2></div>
           <div className="stack">
             {data.history.length === 0 ? <p className="muted">Completed sessions land here.</p> : null}
-            {data.history.map((workout) => <WorkoutRow key={workout.id} workout={workout} />)}
+            {data.history.map((workout) => <WorkoutRow key={workout.id} workout={workout} history />)}
           </div>
         </>
       ) : null}
@@ -210,23 +211,34 @@ function updateSet(setExercises: React.Dispatch<React.SetStateAction<ExDraft[]>>
   setExercises((current) => current.map((exercise, i) => i === index ? { ...exercise, sets: exercise.sets.map((set, j) => (j === setIndex ? next : set)) } : exercise));
 }
 
-function WorkoutRow({ workout }: { workout: WorkoutDto }) {
+function WorkoutRow({ workout, history = false }: { workout: WorkoutDto; history?: boolean }) {
   const sets = workout.exercises.flatMap((exercise) => exercise.sets);
   const done = sets.filter((set) => set.completed).length;
   const preview = workout.exercises.slice(0, 2).map((exercise) => exercise.name).join(", ");
+  const when = workout.scheduledAt
+    ? history
+      ? `${formatLongDate(eventDay(workout.scheduledAt))} · ${formatTime(workout.scheduledAt)}`
+      : formatTime(workout.scheduledAt)
+    : "Unscheduled";
   return (
-    <Link href={`/workouts/${workout.id}`} className="card" style={{ display: "block" }}>
+    <Link href={`/workouts/${workout.id}`} className="card" style={{ display: "block" }} data-testid={history ? "history-entry" : undefined}>
       <div className="spread">
         <strong>{workout.title}</strong>
         <span className="pill" data-type="workout">{workout.status}</span>
       </div>
       <p className="muted" style={{ margin: "6px 0 0" }}>
-        {workout.scheduledAt ? formatTime(workout.scheduledAt) : "Unscheduled"}
+        {when}
+        {history && workout.durationSeconds ? ` · ${formatDuration(workout.durationSeconds)}` : ""}
         {sets.length ? ` · ${done}/${sets.length} sets` : ""}
         {workout.notes?.includes("Apple Health") ? " · Apple Health" : ""}
       </p>
-      {preview ? <p className="faint" style={{ margin: "4px 0 0" }}>{preview}</p> : null}
-      <SetPreview workout={workout} />
+      {history
+        ? workout.exercises.map((exercise) => (
+            <p key={exercise.id} className="faint" style={{ margin: "4px 0 0" }}>{formatExerciseLog(exercise.name, exercise.sets)}</p>
+          ))
+        : null}
+      {!history && preview ? <p className="faint" style={{ margin: "4px 0 0" }}>{preview}</p> : null}
+      {!history ? <SetPreview workout={workout} /> : null}
     </Link>
   );
 }

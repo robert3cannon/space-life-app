@@ -347,6 +347,17 @@ export async function workoutsOnDay(from: Date, to: Date) {
   return listWorkoutsInRange(from, to);
 }
 
+export async function listDoneWorkouts(limit = 30) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(workouts)
+    .where(eq(workouts.status, "done"))
+    .orderBy(desc(workouts.completedAt))
+    .limit(limit);
+  return hydrate(rows);
+}
+
 export async function nextPlannedWorkout(now: Date) {
   const db = getDb();
   const [row] = await db

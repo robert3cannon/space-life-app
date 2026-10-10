@@ -150,8 +150,28 @@ export type WorkoutDto = {
   status: WorkoutStatus;
   notes: string | null;
   reminderMinutesBefore: number | null;
+  durationSeconds: number | null;
   exercises: ExerciseDto[];
   muscles: { primary: string[]; secondary: string[] };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RoutineExercise = {
+  libraryId: string | null;
+  name: string;
+  sets: number;
+  reps: number | null;
+  durationSeconds: number | null;
+  weight: number | null;
+  weightUnit: "lb" | "kg";
+};
+
+export type RoutineDto = {
+  id: string;
+  title: string;
+  restSeconds: number;
+  exercises: RoutineExercise[];
   createdAt: string;
   updatedAt: string;
 };
