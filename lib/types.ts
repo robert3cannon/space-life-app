@@ -274,8 +274,8 @@ export type TodayPayload = {
   } | null;
 };
 
-export type ClosetSlotName = "top" | "bottom" | "layer" | "shoes" | "extra";
-export type OutfitSlotName = "top" | "bottom" | "layer" | "shoes";
+export type ClosetSlotName = "top" | "bottom" | "layer" | "shoes" | "hat" | "extra";
+export type OutfitSlotName = "top" | "bottom" | "layer" | "shoes" | "hat";
 
 export type ClosetCategoryDto = {
   id: string;

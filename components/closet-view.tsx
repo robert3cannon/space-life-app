@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { classifyPhoto, colorsInPhoto } from "./clothing-detect";
 import { api } from "@/lib/client";
 import { detectionFromScores, matchCategory } from "@/lib/closet-detect";
+import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
 import type { ClosetCategoryDto, ClosetItemDto, ClosetSlotName, OutfitDto, OutfitSlotName } from "@/lib/types";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
@@ -17,12 +18,14 @@ const SLOT_LABEL: Record<OutfitSlotName, string> = {
   bottom: "Bottom",
   layer: "Layer",
   shoes: "Shoes",
+  hat: "Hat",
 };
 const CATEGORY_SLOTS: { id: ClosetSlotName; label: string }[] = [
   { id: "top", label: "Top" },
   { id: "bottom", label: "Bottom" },
   { id: "layer", label: "Layer" },
   { id: "shoes", label: "Shoes" },
+  { id: "hat", label: "Hat" },
   { id: "extra", label: "Accessories" },
 ];
 
@@ -89,7 +92,7 @@ function weatherLine(outfit: OutfitDto) {
 }
 
 function OutfitPhotos({ outfit, compact = false }: { outfit: OutfitDto; compact?: boolean }) {
-  const slots: OutfitSlotName[] = ["top", "bottom", "layer", "shoes"];
+  const slots: OutfitSlotName[] = [...OUTFIT_SLOTS];
   const shown = slots.flatMap((slot) => {
     const item = outfit.items.find((row) => row.slot === slot);
     return item ? [item] : [];

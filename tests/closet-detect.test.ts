@@ -48,6 +48,21 @@ describe("closet detection", () => {
     assert.equal(guess.slot, "layer");
     assert.equal(guess.lowConfidence, false);
     assert.equal(guess.warmth, 5);
+    const beanie = detectionFromScores(
+      [
+        { label: "beanie", score: 0.74 },
+        { label: "baseball cap", score: 0.08 },
+      ],
+      ["black"],
+    );
+    assert.equal(beanie.name, "Black beanie");
+    assert.equal(beanie.category, "Caps / Hats");
+    assert.equal(beanie.slot, "hat");
+    assert.equal(beanie.warmth, 4);
+    const cap = detectionFromScores([{ label: "baseball cap", score: 0.66 }, { label: "hat", score: 0.1 }], ["navy"]);
+    assert.equal(cap.name, "Navy baseball cap");
+    assert.equal(cap.category, "Caps / Hats");
+    assert.equal(cap.warmth, 2);
   });
 
   it("reads a dominant color and ignores a plain backdrop", () => {
@@ -76,9 +91,10 @@ describe("closet detection", () => {
       { id: "tees", name: "Shirts/T-shirts", slot: "top" },
       { id: "hoodies", name: "Hoodies", slot: "layer" },
       { id: "jackets", name: "Jackets", slot: "layer" },
-      { id: "caps", name: "Caps", slot: "extra" },
+      { id: "caps", name: "Caps / Hats", slot: "hat" },
     ];
     assert.equal(matchCategory(categories, "Hoodies", "layer")?.id, "hoodies");
-    assert.equal(matchCategory(categories, "Hat", "extra")?.id, "caps");
+    assert.equal(matchCategory(categories, "Caps / Hats", "hat")?.id, "caps");
+    assert.equal(matchCategory([{ id: "caps", name: "Caps", slot: "hat" }], "Caps / Hats", "hat")?.id, "caps");
   });
 });

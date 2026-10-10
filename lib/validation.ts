@@ -337,7 +337,7 @@ export const closetItemPatchSchema = z.object({
 
 export const closetCategorySchema = z.object({
   name: z.string().trim().min(1).max(40),
-  slot: z.enum(["top", "bottom", "layer", "shoes", "extra"]),
+  slot: z.enum(["top", "bottom", "layer", "shoes", "hat", "extra"]),
 });
 
 export const closetCategoryPatchSchema = closetCategorySchema.partial();
@@ -350,7 +350,7 @@ export const outfitSetSchema = z.object({
 
 export const outfitSwapSchema = z.object({
   date: dateField.optional(),
-  slot: z.enum(["top", "bottom", "layer", "shoes"]),
+  slot: z.enum(["top", "bottom", "layer", "shoes", "hat"]),
 });
 
 export const loginSchema = z.object({

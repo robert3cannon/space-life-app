@@ -564,8 +564,8 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 .closet-tile-copy span { color: var(--muted); font-size: 13px; }
 .outfit-row, .today-outfit-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 6px;
   min-width: 0;
   margin-top: 12px;
 }

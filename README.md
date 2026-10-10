@@ -643,7 +643,7 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 Photos stay private. They are stored in Neon, or in a private Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set. On upload, Orbit suggests a name, category, colors, and warmth. Category comes from CLIP (`Xenova/clip-vit-base-patch32`) in the browser, including iPhone. The weights are cached after the first download from Hugging Face, and the photo stays on the phone while that runs. If the browser cannot load the model, the resized photo is posted to `POST /api/closet/detect`, which runs the same CLIP model in Node when that runtime is installed (local and dev). The hosted function leaves the ONNX runtime out so the deploy stays small; a failed load flags the item for a tap. No third-party vision API is called, and no key is required. Colors come from the pixels. A low-confidence guess is flagged so it can be corrected before it is saved. They are never public blob URLs. `GET /api/closet/items/:id/image` accepts the session cookie, the bot bearer token, or a short-lived `exp` and `sig` query pair (15 minutes, signed with `SESSION_SECRET`). The app resizes a photo in the browser to about 800px on the long edge before upload.
 
-`GET /api/bot/closet` returns `{ count, items, categories }`. Each item has `name`, `category`, `slot` (`top`, `bottom`, `layer`, `shoes`, `extra`), `colors`, `warmth` (1–5), `tags` (`casual`, `gym`, `dressy`, `class`, `work`), `inLaundry`, and `imageUrl` when a photo exists. Bot `imageUrl` values are absolute and already signed.
+`GET /api/bot/closet` returns `{ count, items, categories }`. Each item has `name`, `category`, `slot` (`top`, `bottom`, `layer`, `shoes`, `hat`, `extra`), `colors`, `warmth` (1–5), `tags` (`casual`, `gym`, `dressy`, `class`, `work`), `inLaundry`, and `imageUrl` when a photo exists. Bot `imageUrl` values are absolute and already signed. Caps and hats are their own category and an optional outfit slot: a beanie when it is under 50°F, and a light cap on a warm casual or gym day.
 
 `GET /api/bot/outfits?date=YYYY-MM-DD` returns `{ outfit }` for that Detroit day. Omit `date` for today. Today is created with the built-in picker when a top or a bottom is out of the laundry and nothing is stored yet. A past day with no row returns `{ outfit: null }`.
 
@@ -656,7 +656,7 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
   "$BASE/api/bot/outfits"
 ```
 
-`itemIds` is one piece per slot. Accessories are skipped. Two tops in one request is a 400.
+`itemIds` is one piece per slot. Accessories are skipped. A hat is kept when one is included. Two tops in one request is a 400.
 
 `GET /api/bot/outfits/history?limit=30` returns newest first, up to 100.
 

@@ -1,7 +1,7 @@
-export const CLOSET_SLOTS = ["top", "bottom", "layer", "shoes", "extra"] as const;
+export const CLOSET_SLOTS = ["top", "bottom", "layer", "shoes", "hat", "extra"] as const;
 export type ClosetSlot = (typeof CLOSET_SLOTS)[number];
 
-export const OUTFIT_SLOTS = ["top", "bottom", "layer", "shoes"] as const;
+export const OUTFIT_SLOTS = ["top", "bottom", "layer", "shoes", "hat"] as const;
 export type OutfitSlot = (typeof OUTFIT_SLOTS)[number];
 
 export const STYLE_TAGS = ["casual", "gym", "dressy", "class", "work"] as const;
@@ -15,7 +15,8 @@ export const DEFAULT_CATEGORIES: { name: string; slot: ClosetSlot; position: num
   { name: "Hoodies", slot: "layer", position: 4 },
   { name: "Jackets", slot: "layer", position: 5 },
   { name: "Shoes", slot: "shoes", position: 6 },
-  { name: "Accessories", slot: "extra", position: 7 },
+  { name: "Caps / Hats", slot: "hat", position: 7 },
+  { name: "Accessories", slot: "extra", position: 8 },
 ];
 
 const NEUTRALS = new Set([
@@ -84,6 +85,20 @@ export function shortsAllowed(tempF: number) {
   return tempF >= 72;
 }
 
+/** Warm hats in the cold. Light caps on a casual or gym day once it is warm. */
+export function hatForLook(tempF: number, occasion: StyleTag): "warm" | "light" | null {
+  if (tempF < 50) return "warm";
+  if (tempF >= 68 && (occasion === "casual" || occasion === "gym")) return "light";
+  return null;
+}
+
+export function hatStyle(item: Pick<PickItem, "name" | "warmth">): "warm" | "light" {
+  const name = item.name.toLowerCase();
+  if (name.includes("beanie") || name.includes("knit")) return "warm";
+  if (name.includes("cap") || name.includes("snapback") || name.includes("bucket")) return "light";
+  return item.warmth >= 4 ? "warm" : "light";
+}
+
 function norm(color: string) {
   return color.trim().toLowerCase();
 }
@@ -149,6 +164,13 @@ function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: P
     else score += kind === "hoodie" ? 12 : kind === "jacket" ? 3 : 0;
   }
   if (item.slot === "shoes") score += 2;
+  if (item.slot === "hat") {
+    const want = hatForLook(tempF, occasion);
+    const style = hatStyle(item);
+    if (want === "warm" && style === "warm") score += 10 + item.warmth;
+    else if (want === "light" && style === "light") score += 8;
+    else score -= 40;
+  }
   if (partner && item.slot !== "top") score += colorsPair(partner.colors, item.colors) ? 6 : -5;
   return score;
 }
@@ -194,6 +216,18 @@ export function pickOutfit(input: {
       }
     }
     if (slot === "layer" && !layerForTemp(input.tempF)) continue;
+    if (slot === "hat") {
+      const want = hatForLook(input.tempF, input.occasion);
+      if (!want) continue;
+      const candidates = pool.filter((item) => item.slot === "hat" && hatStyle(item) === want);
+      const scored = candidates.map((item) => ({
+        item,
+        score: scoreItem(item, input.tempF, input.occasion, chosen.top ?? null),
+      }));
+      const pick = pickOne(scored, input.date, slot, salt, avoid);
+      if (pick) chosen.hat = pick;
+      continue;
+    }
     if (slot === "bottom") {
       const hot = shortsAllowed(input.tempF);
       const candidates = pool.filter((item) => item.slot === "bottom" && (hot || categoryKind(item.category) !== "shorts"));

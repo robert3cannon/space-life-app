@@ -8,6 +8,7 @@ import {
   occasionFor,
   pickOutfit,
   type ClosetSlot,
+  OUTFIT_SLOTS,
   type OutfitSlot,
   type PickItem,
   type StyleTag,
@@ -19,7 +20,7 @@ import type { ClosetCategoryWrite, ClosetItemPatch, OutfitSet } from "../validat
 import { eastLansingWeather } from "../weather";
 import { listEvents } from "./events";
 
-const SLOTS: OutfitSlot[] = ["top", "bottom", "layer", "shoes"];
+const SLOTS: OutfitSlot[] = [...OUTFIT_SLOTS];
 
 function cleanList(values: string[]) {
   const seen = new Set<string>();

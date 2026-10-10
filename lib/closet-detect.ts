@@ -1,5 +1,5 @@
 /** Fine clothing labels, mapped onto the closet categories. */
-export const FINE_LABELS: { label: string; category: string; slot: "top" | "bottom" | "layer" | "shoes" | "extra"; warmth: number }[] = [
+export const FINE_LABELS: { label: string; category: string; slot: "top" | "bottom" | "layer" | "shoes" | "hat" | "extra"; warmth: number }[] = [
   { label: "t-shirt", category: "Shirts/T-shirts", slot: "top", warmth: 2 },
   { label: "tank top", category: "Shirts/T-shirts", slot: "top", warmth: 1 },
   { label: "polo", category: "Shirts/T-shirts", slot: "top", warmth: 2 },
@@ -16,8 +16,11 @@ export const FINE_LABELS: { label: string; category: string; slot: "top" | "bott
   { label: "shorts", category: "Shorts", slot: "bottom", warmth: 1 },
   { label: "sneakers", category: "Shoes", slot: "shoes", warmth: 2 },
   { label: "boots", category: "Shoes", slot: "shoes", warmth: 4 },
-  { label: "hat", category: "Accessories", slot: "extra", warmth: 2 },
-  { label: "beanie", category: "Accessories", slot: "extra", warmth: 4 },
+  { label: "baseball cap", category: "Caps / Hats", slot: "hat", warmth: 2 },
+  { label: "snapback", category: "Caps / Hats", slot: "hat", warmth: 2 },
+  { label: "bucket hat", category: "Caps / Hats", slot: "hat", warmth: 2 },
+  { label: "beanie", category: "Caps / Hats", slot: "hat", warmth: 4 },
+  { label: "hat", category: "Caps / Hats", slot: "hat", warmth: 2 },
 ];
 
 export const CLIP_LABELS = FINE_LABELS.map((row) => row.label);

@@ -175,6 +175,30 @@ describe("outfit picker", () => {
     assert.notEqual(second.slots.top, first.slots.top);
   });
 
+  it("wears a beanie in the cold and a cap on a warm casual day", () => {
+    const hats = [
+      item({ id: "beanie", name: "Black beanie", slot: "hat", category: "Caps / Hats", warmth: 4 }),
+      item({ id: "cap", name: "Navy baseball cap", slot: "hat", category: "Caps / Hats", warmth: 2 }),
+      item({ id: "tee", name: "Tee", slot: "top", category: "Shirts/T-shirts" }),
+      item({ id: "pants", name: "Jeans", slot: "bottom", category: "Pants" }),
+    ];
+    const cold = pickOutfit({ date, tempF: 40, occasion: "class", items: hats });
+    assert.equal(cold.slots.hat, "beanie");
+    const warm = pickOutfit({ date, tempF: 75, occasion: "casual", items: hats });
+    assert.equal(warm.slots.hat, "cap");
+    const mild = pickOutfit({ date, tempF: 60, occasion: "casual", items: hats });
+    assert.equal(mild.slots.hat, undefined);
+    const office = pickOutfit({ date, tempF: 75, occasion: "work", items: hats });
+    assert.equal(office.slots.hat, undefined);
+    const capOnly = pickOutfit({
+      date,
+      tempF: 40,
+      occasion: "casual",
+      items: hats.filter((row) => row.id !== "beanie"),
+    });
+    assert.equal(capOnly.slots.hat, undefined);
+  });
+
   it("treats a 10:30 outfit nudge as due when the morning cron is within 90 minutes", () => {
     const today = "2026-01-15";
     const fireAt = new Date("2026-01-15T15:30:00.000Z");
@@ -215,7 +239,9 @@ describe("closet bot API", () => {
     assert.equal(denied.status, 401);
     const categories = await listCategories();
     const tee = categories.find((row) => row.name === "Shirts/T-shirts");
+    const hats = categories.find((row) => row.name === "Caps / Hats");
     assert.ok(tee);
+    assert.equal(hats?.slot, "hat");
     const photo = await createItem({
       name: "Photo tee",
       categoryId: tee.id,
