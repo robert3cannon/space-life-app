@@ -598,16 +598,16 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   filter: drop-shadow(0 0 5px rgba(150, 190, 255, 0.9));
 }
 .muscle.heat-4 {
-  fill: #f7f9ff;
-  stroke: #ffffff;
-  filter: drop-shadow(0 0 7px rgba(236, 244, 255, 0.95));
+  fill: #c9dcff;
+  stroke: rgba(255, 255, 255, 0.42);
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.28)) drop-shadow(0 0 14px rgba(198, 220, 255, 0.92));
 }
 .muscle.heat-on { stroke: #ffe7bf; stroke-width: 3.2; }
 .swatch.heat-0 { background: #2a2444; }
 .swatch.heat-1 { background: #2c1d78; }
 .swatch.heat-2 { background: #6b46e8; }
 .swatch.heat-3 { background: #8eb6ff; }
-.swatch.heat-4 { background: #f7f9ff; box-shadow: 0 0 6px rgba(236, 244, 255, 0.9); }
+.swatch.heat-4 { background: #c9dcff; box-shadow: 0 0 8px 2px rgba(198, 220, 255, 0.85); }
 [data-testid="week-heat"] .body-figure { width: min(100%, 270px); }
 .heat-detail { min-width: 0; margin-top: 8px; }
 .heat-detail ul { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
