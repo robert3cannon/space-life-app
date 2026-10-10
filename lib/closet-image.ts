@@ -14,10 +14,11 @@ function secret() {
   return value;
 }
 
-export function signClosetImage(id: string, origin: string, now = Date.now(), ttl = SIGN_TTL_SECONDS) {
-  const exp = Math.floor(now / 1000) + ttl;
+export function signClosetImage(id: string, origin: string, now = Date.now(), ttl = SIGN_TTL_SECONDS, kind: "image" | "cutout" = "image") {
+  const exp = Math.floor(now / 1000) + (ttl ?? SIGN_TTL_SECONDS);
   const sig = createHmac("sha256", secret()).update(`${id}.${exp}`).digest("base64url");
-  return `${origin}/api/closet/items/${id}/image?exp=${exp}&sig=${sig}`;
+  const leaf = kind === "cutout" ? "cutout" : "image";
+  return `${origin}/api/closet/items/${id}/${leaf}?exp=${exp}&sig=${sig}`;
 }
 
 export function closetImageSignatureOk(id: string, expRaw: string | null, sig: string | null, now = Date.now()) {
@@ -79,16 +80,59 @@ export async function readItemImage(id: string): Promise<{ bytes: Buffer; type: 
   return { bytes: row.image, type: row.image_type || "image/jpeg" };
 }
 
+export async function writeItemCutout(id: string, bytes: Buffer) {
+  if (bytes.length > MAX_BYTES) throw new Error("Image is too large");
+  const contentType = "image/png";
+  if (blobEnabled()) {
+    try {
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`closet/${id}-cutout.png`, bytes, {
+        access: "private",
+        contentType,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      const sql = getSql();
+      await sql`UPDATE closet_items SET cutout = NULL, cutout_type = ${contentType}, cutout_blob_pathname = ${blob.pathname}, updated_at = now() WHERE id = ${id}`;
+      return;
+    } catch (err) {
+      console.error("blob_put_failed", err instanceof Error ? err.message : err);
+    }
+  }
+  const sql = getSql();
+  await sql`UPDATE closet_items SET cutout = ${bytes}, cutout_type = ${contentType}, cutout_blob_pathname = NULL, updated_at = now() WHERE id = ${id}`;
+}
+
+export async function readItemCutout(id: string): Promise<{ bytes: Buffer; type: string } | null> {
+  const sql = getSql();
+  const rows = await sql<{ cutout: Buffer | null; cutout_type: string | null; cutout_blob_pathname: string | null }[]>`
+    SELECT cutout, cutout_type, cutout_blob_pathname FROM closet_items WHERE id = ${id}
+  `;
+  const row = rows[0];
+  if (!row) return null;
+  if (row.cutout_blob_pathname && blobEnabled()) {
+    const { get } = await import("@vercel/blob");
+    const result = await get(row.cutout_blob_pathname, { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
+    return { bytes, type: row.cutout_type || "image/png" };
+  }
+  if (!row.cutout) return null;
+  return { bytes: row.cutout, type: row.cutout_type || "image/png" };
+}
+
 export async function deleteItemImage(id: string) {
   const sql = getSql();
-  const rows = await sql<{ blob_pathname: string | null }[]>`SELECT blob_pathname FROM closet_items WHERE id = ${id}`;
-  const pathname = rows[0]?.blob_pathname;
-  if (pathname && blobEnabled()) {
-    try {
-      const { del } = await import("@vercel/blob");
-      await del(pathname, { token: process.env.BLOB_READ_WRITE_TOKEN });
-    } catch (err) {
-      console.error("blob_del_failed", err instanceof Error ? err.message : err);
-    }
+  const rows = await sql<{ blob_pathname: string | null; cutout_blob_pathname: string | null }[]>`
+    SELECT blob_pathname, cutout_blob_pathname FROM closet_items WHERE id = ${id}
+  `;
+  const paths = [rows[0]?.blob_pathname, rows[0]?.cutout_blob_pathname].filter((pathname): pathname is string => Boolean(pathname));
+  if (!paths.length || !blobEnabled()) return;
+  try {
+    const { del } = await import("@vercel/blob");
+    await del(paths, { token: process.env.BLOB_READ_WRITE_TOKEN });
+  } catch (err) {
+    console.error("blob_del_failed", err instanceof Error ? err.message : err);
   }
 }

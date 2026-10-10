@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { classifyPhoto, colorsInPhoto } from "./clothing-detect";
+import { cutOutClothing } from "./clothing-cutout";
+import { OutfitModel } from "./outfit-model";
 import { api } from "@/lib/client";
 import { detectionFromScores, matchCategory } from "@/lib/closet-detect";
 import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
@@ -47,7 +49,9 @@ type PendingPiece = {
   id: string;
   file: File;
   previewUrl: string;
-  status: "detecting" | "ready";
+  cutout?: File | null;
+  cutoutPreviewUrl?: string;
+  status: "detecting" | "cutting" | "ready";
   name: string;
   categoryId: string;
   categoryName: string;
@@ -122,7 +126,7 @@ export function TodayOutfitPeek() {
       {data.outfit ? (
         <Link href="/outfits" className="card today-outfit-link" data-testid="today-outfit-peek">
           <p className="kicker">{weatherLine(data.outfit)}</p>
-          <OutfitPhotos outfit={data.outfit} compact />
+          <OutfitModel outfit={data.outfit} compact />
           <p className="muted today-outfit-reason">{data.outfit.reason}</p>
         </Link>
       ) : (
@@ -147,6 +151,7 @@ export function ClosetView() {
   const [swapOpen, setSwapOpen] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [pending, setPending] = useState<PendingPiece[]>([]);
+  const [outfitView, setOutfitView] = useState<"model" | "pieces">("model");
   const [newCat, setNewCat] = useState({ name: "", slot: "top" as ClosetSlotName });
 
   const closeEditor = useCallback(() => setDraft(null), []);
@@ -205,15 +210,19 @@ export function ClosetView() {
       }
     }
     for (const piece of prepared) {
+      let next: Partial<PendingPiece> = {
+        name: "New item",
+        categoryId: categories[0]?.id ?? "",
+        categoryName: categories[0]?.name ?? "",
+        lowConfidence: true,
+      };
       try {
         const colors = await colorsInPhoto(piece.file);
         const scores = await classifyPhoto(piece.file);
         const guess = detectionFromScores(scores, colors);
         const category = matchCategory(categories, guess.category, guess.slot);
         const tags = guess.tags.filter((tag): tag is (typeof TAGS)[number] => (TAGS as readonly string[]).includes(tag));
-        setPending((rows) => rows.map((row) => row.id === piece.id ? {
-          ...row,
-          status: "ready",
+        next = {
           name: guess.name,
           categoryId: category?.id ?? "",
           categoryName: category?.name ?? guess.category,
@@ -221,17 +230,19 @@ export function ClosetView() {
           warmth: guess.warmth,
           tags,
           lowConfidence: guess.lowConfidence,
-        } : row));
+        };
       } catch {
-        setPending((rows) => rows.map((row) => row.id === piece.id ? {
-          ...row,
-          status: "ready",
+        next = {
           name: "New item",
           categoryId: categories[0]?.id ?? "",
           categoryName: categories[0]?.name ?? "",
           lowConfidence: true,
-        } : row));
+        };
       }
+      setPending((rows) => rows.map((row) => row.id === piece.id ? { ...row, ...next, status: "cutting" } : row));
+      const cutout = await cutOutClothing(piece.file);
+      const cutoutPreviewUrl = cutout ? URL.createObjectURL(cutout) : undefined;
+      setPending((rows) => rows.map((row) => row.id === piece.id ? { ...row, ...next, status: "ready", cutout, cutoutPreviewUrl } : row));
     }
   }
 
@@ -297,7 +308,10 @@ export function ClosetView() {
     if (draft.local) {
       setPending((rows) => {
         const found = rows.find((row) => row.id === draft.id);
-        if (found) URL.revokeObjectURL(found.previewUrl);
+        if (found) {
+          URL.revokeObjectURL(found.previewUrl);
+          if (found.cutoutPreviewUrl) URL.revokeObjectURL(found.cutoutPreviewUrl);
+        }
         return rows.filter((row) => row.id !== draft.id);
       });
       setDraft(null);
@@ -371,8 +385,10 @@ export function ClosetView() {
         body.set("warmth", String(piece.warmth));
         body.set("tags", piece.tags.join(","));
         body.set("inLaundry", piece.inLaundry ? "true" : "false");
+        if (piece.cutout) body.set("cutout", piece.cutout);
         await api<ClosetItemDto>("/api/closet/items", { method: "POST", body });
         URL.revokeObjectURL(piece.previewUrl);
+        if (piece.cutoutPreviewUrl) URL.revokeObjectURL(piece.cutoutPreviewUrl);
       }
       setPending((rows) => rows.filter((piece) => !ready.some((item) => item.id === piece.id)));
       toast(ready.length === 1 ? "Added to the closet" : `Added ${ready.length} pieces`);
@@ -410,6 +426,7 @@ export function ClosetView() {
   const items = closet.data?.items ?? [];
   const categories = closet.data?.categories ?? [];
   const detecting = pending.some((piece) => piece.status === "detecting");
+  const cutting = pending.some((piece) => piece.status === "cutting");
   const visible = filter === "all" ? items : items.filter((item) => item.categoryId === filter);
   const pick = outfit.data?.outfit ?? null;
 
@@ -425,7 +442,11 @@ export function ClosetView() {
         <h2>Today’s outfit</h2>
         {pick ? (
           <>
-            <OutfitPhotos outfit={pick} />
+            <div className="outfit-toggle" role="group" aria-label="Outfit view">
+              <button className={`chip ${outfitView === "model" ? "on" : ""}`} type="button" data-testid="outfit-view-model" onClick={() => setOutfitView("model")}>On model</button>
+              <button className={`chip ${outfitView === "pieces" ? "on" : ""}`} type="button" data-testid="outfit-view-pieces" onClick={() => setOutfitView("pieces")}>Pieces</button>
+            </div>
+            {outfitView === "model" ? <OutfitModel outfit={pick} /> : <OutfitPhotos outfit={pick} />}
             <p>{pick.reason}</p>
             <p className="faint">{pick.source === "bot" ? "Picked by Outfit Selector." : "Picked in Orbit."}{pick.wornAt ? " Logged as worn." : ""}</p>
             <div className="stack closet-actions">
@@ -457,7 +478,7 @@ export function ClosetView() {
         <section data-testid="detect-review" aria-label="Review detected clothes">
           <div className="section-title">
             <h2>Review</h2>
-            <span className="muted">{detecting ? "Detecting..." : `${pending.length} ready`}</span>
+            <span className="muted">{detecting ? "Detecting..." : cutting ? "Cutting out..." : `${pending.length} ready`}</span>
           </div>
           <div className="closet-grid">
             {pending.map((piece) => (
@@ -469,15 +490,15 @@ export function ClosetView() {
                 data-confidence={piece.lowConfidence ? "low" : "ok"}
                 onClick={() => openPending(piece)}
               >
-                <img src={piece.previewUrl} alt="" />
+                <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
                 <span className="closet-tile-copy">
                   <strong>{piece.name}</strong>
-                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
+                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
                 </span>
               </button>
             ))}
           </div>
-          <button className="btn" type="button" data-testid="add-detected" style={{ marginTop: 12 }} disabled={busy || detecting || pending.every((piece) => !piece.categoryId)} onClick={() => void addDetected()}>
+          <button className="btn" type="button" data-testid="add-detected" style={{ marginTop: 12 }} disabled={busy || detecting || cutting || pending.every((piece) => !piece.categoryId)} onClick={() => void addDetected()}>
             {pending.length === 1 ? "Add to closet" : `Add ${pending.length} to closet`}
           </button>
         </section>

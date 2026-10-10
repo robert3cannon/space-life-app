@@ -226,6 +226,8 @@ export const closetItems = pgTable("closet_items", {
   inLaundry: boolean("in_laundry").notNull().default(false),
   imageType: text("image_type"),
   blobPathname: text("blob_pathname"),
+  cutoutType: text("cutout_type"),
+  cutoutBlobPathname: text("cutout_blob_pathname"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });

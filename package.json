@@ -19,6 +19,7 @@
     "@fontsource/orbitron": "^5.3.0",
     "@fontsource/outfit": "^5.2.5",
     "@huggingface/transformers": "^4.3.1",
+    "@imgly/background-removal": "^1.7.0",
     "@vercel/blob": "^2.8.1",
     "@zxing/browser": "^0.2.1",
     "drizzle-orm": "^0.44.5",

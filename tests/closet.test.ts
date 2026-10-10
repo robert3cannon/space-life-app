@@ -6,6 +6,7 @@ import { GET as botCloset } from "../app/api/bot/closet/route";
 import { GET as botHistory } from "../app/api/bot/outfits/history/route";
 import { GET as botOutfit, POST as botSetOutfit } from "../app/api/bot/outfits/route";
 import { PATCH as patchCategory } from "../app/api/closet/categories/[id]/route";
+import { GET as closetCutout } from "../app/api/closet/items/[id]/cutout/route";
 import { GET as closetImage } from "../app/api/closet/items/[id]/image/route";
 import { POST as newOutfit } from "../app/api/outfits/new/route";
 import { POST as woreOutfit } from "../app/api/outfits/wore/route";
@@ -24,6 +25,7 @@ import { migrate } from "../scripts/migrate";
 const ctx = undefined as never;
 const bot = { authorization: "Bearer test-bot-token-value", "content-type": "application/json" };
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
 function item(partial: Partial<PickItem> & Pick<PickItem, "id" | "name" | "slot" | "category">): PickItem {
   return {
@@ -248,7 +250,9 @@ describe("closet bot API", () => {
       colors: ["white"],
       tags: ["casual"],
       image: { bytes: jpeg, type: "image/jpeg" },
+      cutout: { bytes: png, type: "image/png" },
     });
+    assert.equal(photo.cutoutUrl, `/api/closet/items/${photo.id}/cutout`);
     const hidden = await closetImage(new Request(`http://localhost/api/closet/items/${photo.id}/image`), {
       params: Promise.resolve({ id: photo.id }),
     });
@@ -261,6 +265,18 @@ describe("closet bot API", () => {
     assert.equal(Buffer.from(await authed.arrayBuffer()).length, jpeg.length);
     const open = await middleware(new NextRequest(`http://localhost/api/closet/items/${photo.id}/image`));
     assert.equal(open.status, 200);
+    const hiddenCutout = await closetCutout(new Request(`http://localhost/api/closet/items/${photo.id}/cutout`), {
+      params: Promise.resolve({ id: photo.id }),
+    });
+    assert.equal(hiddenCutout.status, 401);
+    const authedCutout = await closetCutout(new Request(`http://localhost/api/closet/items/${photo.id}/cutout`, { headers: { cookie } }), {
+      params: Promise.resolve({ id: photo.id }),
+    });
+    assert.equal(authedCutout.status, 200);
+    assert.equal(authedCutout.headers.get("content-type"), "image/png");
+    assert.equal(Buffer.from(await authedCutout.arrayBuffer()).length, png.length);
+    const openCutout = await middleware(new NextRequest(`http://localhost/api/closet/items/${photo.id}/cutout`));
+    assert.equal(openCutout.status, 200);
   });
 
   it("picks from the weather, then keeps a bot override", async () => {

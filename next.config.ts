@@ -2,8 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node"],
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "@imgly/background-removal", "onnxruntime-web"],
   outputFileTracingExcludes: {
+    "*": [
+      "node_modules/@imgly/background-removal/**/*",
+      "node_modules/onnxruntime-web/**/*",
+      "node_modules/onnxruntime-node/**/*",
+    ],
     "/api/closet/detect": [
       "node_modules/onnxruntime-node/**/*",
       "node_modules/@huggingface/transformers/**/*",

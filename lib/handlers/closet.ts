@@ -8,6 +8,7 @@ import {
   createItem,
   deleteCategory,
   deleteItem,
+  itemCutout,
   itemImage,
   listCategories,
   listItems,
@@ -66,6 +67,11 @@ export async function postClosetItem(req: Request) {
     .map((part) => part.trim())
     .filter(Boolean);
   const warmth = Number(form.get("warmth") ?? 3);
+  const cutoutFile = form.get("cutout");
+  const cutout =
+    cutoutFile instanceof File && cutoutFile.size > 0 && cutoutFile.size <= imageByteLimit() && (cutoutFile.type || "image/png") === "image/png"
+      ? { bytes: Buffer.from(await cutoutFile.arrayBuffer()), type: "image/png" as const }
+      : null;
   const item = await createItem({
     name: String(form.get("name") ?? ""),
     filename: file.name,
@@ -75,6 +81,7 @@ export async function postClosetItem(req: Request) {
     tags,
     inLaundry: form.get("inLaundry") === "true",
     image: { bytes: Buffer.from(await file.arrayBuffer()), type: type === "image/jpg" ? "image/jpeg" : type },
+    cutout,
   });
   return json(item, 201);
 }
@@ -98,6 +105,24 @@ export async function getClosetImage(req: Request, ctx: { params: Promise<{ id: 
     closetImageSignatureOk(id, url.searchParams.get("exp"), url.searchParams.get("sig"));
   if (!allowed) return error("Unauthorized", 401);
   const image = await itemImage(id);
+  return new Response(new Uint8Array(image.bytes), {
+    headers: {
+      "content-type": image.type,
+      "cache-control": "private, no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+export async function getClosetCutout(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const id = await routeId(ctx);
+  const url = new URL(req.url);
+  const allowed =
+    (await isAuthedRequest(req)) ||
+    isBotRequest(req) ||
+    closetImageSignatureOk(id, url.searchParams.get("exp"), url.searchParams.get("sig"));
+  if (!allowed) return error("Unauthorized", 401);
+  const image = await itemCutout(id);
   return new Response(new Uint8Array(image.bytes), {
     headers: {
       "content-type": image.type,

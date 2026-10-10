@@ -295,6 +295,7 @@ export type ClosetItemDto = {
   tags: string[];
   inLaundry: boolean;
   imageUrl: string | null;
+  cutoutUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -1,5 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { deleteItemImage, imageByteLimit, readItemImage, signClosetImage, writeItemImage } from "../closet-image";
+import { deleteItemImage, imageByteLimit, readItemCutout, readItemImage, signClosetImage, writeItemCutout, writeItemImage } from "../closet-image";
 import { getDb, getSql } from "../db";
 import { closetCategories, closetItems, outfitSlots, outfits } from "../db/schema";
 import { HttpError } from "../errors";
@@ -101,9 +101,14 @@ export async function deleteCategory(id: string) {
 
 function itemDto(row: typeof closetItems.$inferSelect, category: ClosetCategoryDto, origin: string | null, signed: boolean): ClosetItemDto {
   const hasImage = Boolean(row.imageType || row.blobPathname);
+  const hasCutout = Boolean(row.cutoutType || row.cutoutBlobPathname);
   let imageUrl: string | null = null;
+  let cutoutUrl: string | null = null;
   if (hasImage) {
     imageUrl = signed && origin ? signClosetImage(row.id, origin) : `/api/closet/items/${row.id}/image`;
+  }
+  if (hasCutout) {
+    cutoutUrl = signed && origin ? signClosetImage(row.id, origin, Date.now(), undefined, "cutout") : `/api/closet/items/${row.id}/cutout`;
   }
   return {
     id: row.id,
@@ -116,6 +121,7 @@ function itemDto(row: typeof closetItems.$inferSelect, category: ClosetCategoryD
     tags: row.tags ?? [],
     inLaundry: row.inLaundry,
     imageUrl,
+    cutoutUrl,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -162,6 +168,7 @@ export async function createItem(input: {
   tags?: string[];
   inLaundry?: boolean;
   image?: { bytes: Buffer; type: string } | null;
+  cutout?: { bytes: Buffer; type: string } | null;
 }) {
   if (input.image && input.image.bytes.length > imageByteLimit()) {
     throw new HttpError("Image is too large. Keep it under 1.5 MB.", 400);
@@ -182,6 +189,9 @@ export async function createItem(input: {
     })
     .returning();
   if (input.image) await writeItemImage(row.id, input.image.bytes, input.image.type);
+  if (input.cutout && input.cutout.type === "image/png" && input.cutout.bytes.length <= imageByteLimit()) {
+    await writeItemCutout(row.id, input.cutout.bytes);
+  }
   return getItem(row.id, null, false);
 }
 
@@ -220,6 +230,12 @@ export async function deleteItem(id: string) {
 export async function itemImage(id: string) {
   const image = await readItemImage(id);
   if (!image) throw new HttpError("No photo", 404);
+  return image;
+}
+
+export async function itemCutout(id: string) {
+  const image = await readItemCutout(id);
+  if (!image) throw new HttpError("No cutout", 404);
   return image;
 }
 
