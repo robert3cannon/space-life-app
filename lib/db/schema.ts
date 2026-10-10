@@ -209,6 +209,45 @@ export const healthExports = pgTable(
   (table) => [unique("health_exports_kind_source").on(table.kind, table.sourceId)],
 );
 
+export const closetCategories = pgTable("closet_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  slot: text("slot").notNull(),
+  position: integer("position").notNull().default(0),
+});
+
+export const closetItems = pgTable("closet_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  categoryId: uuid("category_id").notNull(),
+  colors: jsonb("colors").$type<string[]>().notNull(),
+  warmth: integer("warmth").notNull().default(3),
+  tags: jsonb("tags").$type<string[]>().notNull(),
+  inLaundry: boolean("in_laundry").notNull().default(false),
+  imageType: text("image_type"),
+  blobPathname: text("blob_pathname"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const outfits = pgTable("outfits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  wearDate: text("wear_date").notNull(),
+  reason: text("reason").notNull().default(""),
+  source: text("source").notNull().default("rules"),
+  wornAt: timestamp("worn_at", { withTimezone: true, mode: "date" }),
+  weather: jsonb("weather").$type<{ tempF: number; code: number; label: string; live: boolean } | null>(),
+  generation: integer("generation").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const outfitSlots = pgTable("outfit_slots", {
+  outfitId: uuid("outfit_id").notNull(),
+  slot: text("slot").notNull(),
+  itemId: uuid("item_id").notNull(),
+});
+
 export const habitChecks = pgTable("habit_checks", {
   id: uuid("id").primaryKey().defaultRandom(),
   habitId: uuid("habit_id").notNull(),

@@ -4,7 +4,8 @@ import { events, reminders, workouts } from "../db/schema";
 import { HttpError } from "../errors";
 import { formatTime } from "../format";
 import { deliverPush, type PushPayload } from "../push";
-import { addCalendarDays, todayDateString, zonedDateTimeToUtc } from "../time";
+import { outfitNudge } from "./closet";
+import { addCalendarDays, getZonedParts, todayDateString, zonedDateTimeToUtc } from "../time";
 import type { ReminderCreate, ReminderPatch } from "../validation";
 import { serializeReminder } from "./dto";
 import { openRemindedHabits } from "./habits";
@@ -28,7 +29,9 @@ function payloadFor(row: typeof reminders.$inferSelect): PushPayload {
               ? `/workouts/${row.relatedId}`
               : row.kind === "event"
                 ? "/schedule"
-                : "/reminders";
+                : row.kind === "outfit"
+                  ? "/outfits"
+                  : "/reminders";
   return {
     title: row.title,
     body: row.body || row.title,
@@ -151,7 +154,7 @@ async function ensureSlot(input: {
   title: string;
   body: string;
   fireAt: Date;
-  kind: "water" | "sleep" | "habit";
+  kind: "water" | "sleep" | "habit" | "outfit";
   now: Date;
 }) {
   if (input.fireAt.getTime() < input.now.getTime() - 10 * 60_000) return 0;
@@ -251,6 +254,51 @@ export async function ensureWellnessReminders(now = new Date()) {
     }
   }
 
+  return created;
+}
+
+/** The daily cron is on the hour. A 10:30 nudge still goes out that morning if the run is within 90 minutes. */
+export function outfitReminderIsDue(fireAt: Date, now: Date, fireDate: string, today: string) {
+  if (fireAt.getTime() <= now.getTime()) return true;
+  if (fireDate !== today) return false;
+  return fireAt.getTime() - now.getTime() <= 90 * 60_000;
+}
+
+export async function ensureOutfitReminder(now = new Date()) {
+  const prefs = await getSettings();
+  const today = todayDateString(now);
+  if (!prefs.outfitReminder.enabled) {
+    for (const offset of [0, 1]) {
+      await clearPendingReminder(`outfit:${addCalendarDays(today, offset)}:${prefs.outfitReminder.time}`);
+    }
+    return 0;
+  }
+  const nudge = await outfitNudge(now);
+  if (!nudge) return 0;
+  let created = 0;
+  for (const offset of [0, 1]) {
+    const date = addCalendarDays(today, offset);
+    const fireAt = zonedDateTimeToUtc(date, prefs.outfitReminder.time);
+    created += await ensureSlot({
+      dedupeKey: `outfit:${date}:${prefs.outfitReminder.time}`,
+      title: nudge.title,
+      body: offset === 0 ? nudge.body : "Your outfit is ready.",
+      fireAt,
+      kind: "outfit",
+      now,
+    });
+  }
+  const db = getDb();
+  const pending = await db.select().from(reminders).where(and(eq(reminders.kind, "outfit"), eq(reminders.status, "pending")));
+  for (const row of pending) {
+    const fireDate = getZonedParts(row.fireAt).date;
+    if (!outfitReminderIsDue(row.fireAt, now, fireDate, today)) continue;
+    if (row.fireAt.getTime() > now.getTime()) {
+      await db.update(reminders).set({ fireAt: now, body: nudge.body, title: nudge.title }).where(eq(reminders.id, row.id));
+    } else if (fireDate === today && row.body !== nudge.body) {
+      await db.update(reminders).set({ body: nudge.body, title: nudge.title }).where(eq(reminders.id, row.id));
+    }
+  }
   return created;
 }
 
@@ -358,6 +406,7 @@ export async function upcomingReminders(limit: number) {
 export async function dispatchReminders(now = new Date()) {
   const mealRemindersCreated = await ensureMealReminders(now);
   const wellnessRemindersCreated = await ensureWellnessReminders(now);
+  const outfitRemindersCreated = await ensureOutfitReminder(now);
   const db = getDb();
   const due = await db
     .select()
@@ -382,6 +431,7 @@ export async function dispatchReminders(now = new Date()) {
         reason: "push_not_configured" as const,
         mealRemindersCreated,
         wellnessRemindersCreated,
+        outfitRemindersCreated,
         due: due.length,
         sent,
         held: due.length - sent,
@@ -402,6 +452,7 @@ export async function dispatchReminders(now = new Date()) {
     ok: true,
     mealRemindersCreated,
     wellnessRemindersCreated,
+    outfitRemindersCreated,
     due: due.length,
     sent,
     held,

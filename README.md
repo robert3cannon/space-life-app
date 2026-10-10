@@ -569,6 +569,8 @@ curl -sS -X PATCH -H "Authorization: Bearer $BOT_API_TOKEN" \
 
 `waterReminders` is `{ enabled, times }`. Times are `HH:mm`. When enabled, every time must be 11:00 or later so nudges stay in awake hours. `sleepReminder` is `{ enabled, time }` for a wind-down, late evening (20:00 or later) or after midnight through 04:00. `habitReminder` is `{ enabled, time }` at 17:00 or later. It fires only when a habit marked for a reminder is still open that day.
 
+`outfitReminder` is `{ enabled, time }`. The default is on at `10:30`. The daily cron still runs once, at 15:00 UTC. In the summer that is 11:00 in Detroit, so the 10:30 nudge is already due. In the winter it is 10:00, and a same-day outfit reminder due within the next 90 minutes is sent on that run. Changing `outfitReminder` drops unsent outfit reminders so the next run recreates them. The body is today’s pieces and the East Lansing temperature. An empty closet does not create a nudge.
+
 Changing any of those drops unsent water, sleep, and habit reminders so the next cron run recreates them. If today's water goal is already met, today's water nudges are cleared.
 
 `equipment` is `{ "gear": ["bodyweight", "pushup_board", "dumbbells"], "dumbbellLb": 15, "dumbbellCount": 2 }`. That is the default when the key is missing, so an older settings row picks it up with no migration. `gear` may be any subset of those three ids. Circuit lists and the exercise library follow it. Dumbbell stations note the weight and a 2-second lower. Push-up stations that use the board note the color zone.
@@ -636,6 +638,31 @@ curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
   -d '{"done":true}' \
   "$BASE/api/bot/habits/HABIT_ID/check"
 ```
+
+### Closet and outfits
+
+Photos stay private. They are stored in Neon, or in a private Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set. They are never public blob URLs. `GET /api/closet/items/:id/image` accepts the session cookie, the bot bearer token, or a short-lived `exp` and `sig` query pair (15 minutes, signed with `SESSION_SECRET`). The app resizes a photo in the browser to about 800px on the long edge before upload.
+
+`GET /api/bot/closet` returns `{ count, items, categories }`. Each item has `name`, `category`, `slot` (`top`, `bottom`, `layer`, `shoes`, `extra`), `colors`, `warmth` (1–5), `tags` (`casual`, `gym`, `dressy`, `class`, `work`), `inLaundry`, and `imageUrl` when a photo exists. Bot `imageUrl` values are absolute and already signed.
+
+`GET /api/bot/outfits?date=YYYY-MM-DD` returns `{ outfit }` for that Detroit day. Omit `date` for today. Today is created with the built-in picker when a top or a bottom is out of the laundry and nothing is stored yet. A past day with no row returns `{ outfit: null }`.
+
+`POST /api/bot/outfits` sets the day’s pick and overrides the built-in picker until Robert taps New outfit.
+
+```bash
+curl -sS -X POST -H "Authorization: Bearer $BOT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-10","itemIds":["ITEM_ID"],"reason":"Navy shirt, class at 2."}' \
+  "$BASE/api/bot/outfits"
+```
+
+`itemIds` is one piece per slot. Accessories are skipped. Two tops in one request is a 400.
+
+`GET /api/bot/outfits/history?limit=30` returns newest first, up to 100.
+
+The built-in picker still runs when the bot is offline. A jacket is preferred under about 50°F, a hoodie from about 50–62°F, and shorts only from about 72°F up. Laundry is skipped. Pieces worn in the last four days are skipped when something else is clean. Class and work days come from the schedule. Weather is Open-Meteo for East Lansing, with no API key. If that request fails, the picker uses a mild 60°F stand-in and says the weather did not load.
+
+Signed-in mirrors: `GET/POST /api/closet/items`, `PATCH/DELETE /api/closet/items/:id`, `GET/POST /api/closet/categories`, `PATCH/DELETE /api/closet/categories/:id`, `GET /api/outfits`, `POST /api/outfits/new`, `POST /api/outfits/swap` with `{ "slot": "top" }`, `POST /api/outfits/wore`, and `GET /api/outfits/history`.
 
 ## Tests
 

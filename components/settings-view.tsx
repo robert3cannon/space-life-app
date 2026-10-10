@@ -46,6 +46,8 @@ export function SettingsView() {
   const [sleepTime, setSleepTime] = useState("01:00");
   const [habitOn, setHabitOn] = useState(false);
   const [habitTime, setHabitTime] = useState("22:00");
+  const [outfitOn, setOutfitOn] = useState(true);
+  const [outfitTime, setOutfitTime] = useState("10:30");
   const [gear, setGear] = useState<GearId[]>(["bodyweight", "pushup_board", "dumbbells"]);
   const [dumbbellLb, setDumbbellLb] = useState("15");
   const [dumbbellCount, setDumbbellCount] = useState("2");
@@ -82,6 +84,8 @@ export function SettingsView() {
     setSleepTime(settings.data.sleepReminder.time);
     setHabitOn(settings.data.habitReminder.enabled);
     setHabitTime(settings.data.habitReminder.time);
+    setOutfitOn(settings.data.outfitReminder.enabled);
+    setOutfitTime(settings.data.outfitReminder.time);
     setGear(settings.data.equipment.gear);
     setDumbbellLb(String(settings.data.equipment.dumbbellLb));
     setDumbbellCount(String(settings.data.equipment.dumbbellCount));
@@ -143,6 +147,7 @@ export function SettingsView() {
           waterReminders: { enabled: waterOn, times: waterTimes },
           sleepReminder: { enabled: sleepOn, time: sleepTime },
           habitReminder: { enabled: habitOn, time: habitTime },
+          outfitReminder: { enabled: outfitOn, time: outfitTime },
           equipment: {
             gear,
             dumbbellLb: Number(dumbbellLb),
@@ -344,7 +349,19 @@ export function SettingsView() {
                 <span>Habit time</span>
                 <input type="time" value={habitTime} onChange={(event) => setHabitTime(event.target.value)} />
               </label>
+              <label className="field">
+                <span>Outfit reminder</span>
+                <select value={outfitOn ? "yes" : "no"} onChange={(event) => setOutfitOn(event.target.value === "yes")}>
+                  <option value="no">Off</option>
+                  <option value="yes">On</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Outfit time</span>
+                <input type="time" value={outfitTime} onChange={(event) => setOutfitTime(event.target.value)} />
+              </label>
             </div>
+            <p className="faint">The outfit nudge defaults to 10:30, with today’s clothes and the East Lansing weather.</p>
           </section>
           <button className="btn" style={{ marginTop: 12 }} type="submit">Save</button>
         </form>

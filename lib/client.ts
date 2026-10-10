@@ -8,7 +8,9 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (init?.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  if (init?.body && !(init.body instanceof FormData) && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
   const res = await fetch(path, { ...init, headers, credentials: "same-origin" });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (res.status === 401 && !path.startsWith("/api/auth/login")) {

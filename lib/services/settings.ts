@@ -25,6 +25,7 @@ function normalize(value: AppSettings): AppSettings {
     },
     sleepReminder: { ...DEFAULT_SETTINGS.sleepReminder, ...value.sleepReminder },
     habitReminder: { ...DEFAULT_SETTINGS.habitReminder, ...value.habitReminder },
+    outfitReminder: { ...DEFAULT_SETTINGS.outfitReminder, ...value.outfitReminder },
     equipment: {
       ...DEFAULT_EQUIPMENT,
       ...value.equipment,
@@ -64,6 +65,7 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     waterReminders: patch.waterReminders ?? current.waterReminders,
     sleepReminder: patch.sleepReminder ?? current.sleepReminder,
     habitReminder: patch.habitReminder ?? current.habitReminder,
+    outfitReminder: patch.outfitReminder ?? current.outfitReminder,
     equipment: patch.equipment ?? current.equipment,
     circuitAudio: patch.circuitAudio ?? current.circuitAudio,
   });
@@ -79,6 +81,9 @@ export async function updateSettings(patch: z.infer<typeof settingsPatchSchema>)
     await db
       .delete(reminders)
       .where(and(inArray(reminders.kind, ["water", "sleep", "habit"]), ne(reminders.status, "sent")));
+  }
+  if (patch.outfitReminder) {
+    await db.delete(reminders).where(and(eq(reminders.kind, "outfit"), ne(reminders.status, "sent")));
   }
   return next;
 }

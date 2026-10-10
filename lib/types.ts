@@ -9,7 +9,7 @@ export type MealType = (typeof MEALS)[number];
 export const WORKOUT_STATUSES = ["planned", "done", "skipped"] as const;
 export type WorkoutStatus = (typeof WORKOUT_STATUSES)[number];
 
-export const REMINDER_KINDS = ["event", "meal", "workout", "custom", "water", "sleep", "habit"] as const;
+export const REMINDER_KINDS = ["event", "meal", "workout", "custom", "water", "sleep", "habit", "outfit"] as const;
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
 
 export const REMINDER_STATUSES = ["pending", "sent", "cancelled"] as const;
@@ -42,6 +42,11 @@ export type ClockReminderSetting = {
 export const HABIT_AUTOS = ["protein", "water", "workout", "steps"] as const;
 export type HabitAuto = (typeof HABIT_AUTOS)[number];
 
+export type OutfitReminderSetting = {
+  enabled: boolean;
+  time: string;
+};
+
 export type CircuitAudioSetting = {
   enabled: boolean;
   /** 0–100. Short cues mix with other audio. */
@@ -58,6 +63,7 @@ export type AppSettings = {
   waterReminders: WaterReminderSetting;
   sleepReminder: ClockReminderSetting;
   habitReminder: ClockReminderSetting;
+  outfitReminder: OutfitReminderSetting;
   equipment: EquipmentProfile;
   circuitAudio: CircuitAudioSetting;
 };
@@ -266,4 +272,41 @@ export type TodayPayload = {
     exerciseMinutes: number | null;
     dietaryWaterOz: number | null;
   } | null;
+};
+
+export type ClosetSlotName = "top" | "bottom" | "layer" | "shoes" | "extra";
+export type OutfitSlotName = "top" | "bottom" | "layer" | "shoes";
+
+export type ClosetCategoryDto = {
+  id: string;
+  name: string;
+  slot: ClosetSlotName;
+  position: number;
+};
+
+export type ClosetItemDto = {
+  id: string;
+  name: string;
+  categoryId: string;
+  category: string;
+  slot: ClosetSlotName;
+  colors: string[];
+  warmth: number;
+  tags: string[];
+  inLaundry: boolean;
+  imageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OutfitItemDto = ClosetItemDto & { slot: OutfitSlotName };
+
+export type OutfitDto = {
+  id: string;
+  date: string;
+  reason: string;
+  source: "rules" | "bot";
+  wornAt: string | null;
+  weather: { tempF: number; label: string; place: string; live: boolean } | null;
+  items: OutfitItemDto[];
 };

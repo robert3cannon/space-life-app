@@ -8,6 +8,7 @@ import { formatAgo, formatHours, formatTime, formatTimeRange } from "@/lib/forma
 import type { HabitSummary, TodayPayload, WorkoutDto } from "@/lib/types";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
+import { TodayOutfitPeek } from "./closet-view";
 import { ErrorNote, Loading, Meter, PageTitle, Ring } from "./ui";
 
 export function TodayView() {
@@ -69,6 +70,8 @@ function TodayBody({ data, reload }: { data: TodayPayload; reload: () => Promise
           );
         })}
       </div>
+
+      <TodayOutfitPeek />
 
       <div className="section-title">
         <h2>Fuel</h2>

@@ -530,6 +530,61 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   border-color: rgba(196, 184, 255, 0.6);
   color: #fff;
 }
+.closet-outfit { margin-top: 18px; }
+.closet-upload { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.closet-filters { margin-bottom: 12px; }
+.closet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+.closet-empty { grid-column: 1 / -1; margin: 0; }
+.closet-tile {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(32, 26, 72, 0.82), rgba(12, 10, 32, 0.8));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: inherit;
+}
+.closet-tile img, .outfit-fallback {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #100c24;
+}
+.closet-tile-copy { display: block; padding: 8px 10px 12px; min-width: 0; }
+.closet-tile-copy strong, .closet-tile-copy span, .outfit-slot figcaption {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.closet-tile-copy span { color: var(--muted); font-size: 13px; }
+.outfit-row, .today-outfit-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin-top: 12px;
+}
+.outfit-slot { margin: 0; min-width: 0; }
+.outfit-slot img, .outfit-slot .outfit-fallback {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.outfit-slot figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.closet-actions { margin-top: 12px; }
+.tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+a.today-outfit-link { display: block; text-decoration: none; color: inherit; margin-bottom: 4px; }
+.today-outfit-reason {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 8px 0 0;
+}
 .body-map { margin: 8px 0 4px; min-width: 0; max-width: 100%; }
 .body-map { touch-action: manipulation; }
 .body-figure {

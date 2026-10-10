@@ -5,6 +5,12 @@ import { PageTitle } from "./ui";
 
 const groups = [
   {
+    title: "Closet",
+    links: [
+      { href: "/outfits", title: "Outfits", copy: "Photos, today’s pick, and laundry." },
+    ],
+  },
+  {
     title: "Wellness",
     links: [
       { href: "/water", title: "Water", copy: "Daily ounces, quick add, and the week." },

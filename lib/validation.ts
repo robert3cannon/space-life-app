@@ -255,6 +255,12 @@ export const settingsPatchSchema = z.object({
       volume: z.number().int().min(0).max(100),
     })
     .optional(),
+  outfitReminder: z
+    .object({
+      enabled: z.boolean(),
+      time: timeField,
+    })
+    .optional(),
 });
 
 export const waterCreateSchema = z.object({
@@ -320,6 +326,33 @@ export const healthTokenSchema = z.object({
   action: z.enum(["generate", "revoke"]),
 });
 
+export const closetItemPatchSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  categoryId: z.string().uuid().optional(),
+  colors: z.array(z.string().trim().min(1).max(30)).max(6).optional(),
+  warmth: z.number().int().min(1).max(5).optional(),
+  tags: z.array(z.enum(["casual", "gym", "dressy", "class", "work"])).max(5).optional(),
+  inLaundry: z.boolean().optional(),
+});
+
+export const closetCategorySchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  slot: z.enum(["top", "bottom", "layer", "shoes", "extra"]),
+});
+
+export const closetCategoryPatchSchema = closetCategorySchema.partial();
+
+export const outfitSetSchema = z.object({
+  date: dateField,
+  itemIds: z.array(z.string().uuid()).min(1).max(6),
+  reason: z.string().trim().min(1).max(400),
+});
+
+export const outfitSwapSchema = z.object({
+  date: dateField.optional(),
+  slot: z.enum(["top", "bottom", "layer", "shoes"]),
+});
+
 export const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
@@ -350,3 +383,6 @@ export type HabitPatch = z.infer<typeof habitPatchSchema>;
 export type HabitCheckInput = z.infer<typeof habitCheckSchema>;
 export type HealthAck = z.infer<typeof healthAckSchema>;
 export type HealthTokenAction = z.infer<typeof healthTokenSchema>;
+export type ClosetItemPatch = z.infer<typeof closetItemPatchSchema>;
+export type ClosetCategoryWrite = z.infer<typeof closetCategorySchema>;
+export type OutfitSet = z.infer<typeof outfitSetSchema>;
