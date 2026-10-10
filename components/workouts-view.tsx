@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { formatTime, formatWeight, formatDuration, formatExerciseLog, formatLongDate, eventDay } from "@/lib/format";
 import { muscleLabel } from "@/lib/muscles";
 import { getZonedParts } from "@/lib/time";
 import type { WorkoutDto } from "@/lib/types";
+import { HEAT_LEGEND } from "@/lib/heat";
 import { BodyMap } from "./body-map";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
@@ -15,7 +15,13 @@ import { useLoad } from "./use-load";
 import { ErrorNote, Loading, PageTitle } from "./ui";
 
 type Board = { today: string; upcoming: WorkoutDto[]; history: WorkoutDto[] };
-type Coverage = { primary: string[]; secondary: string[]; neglected: string[] };
+type HeatRow = {
+  volume: number;
+  sets: number;
+  bucket: number;
+  sessions: { id: string; title: string; sets: number; volume: number }[];
+};
+type Coverage = { primary: string[]; secondary: string[]; neglected: string[]; heat?: Record<string, HeatRow> };
 type SetDraft = { reps: string; weight: string; duration: string };
 type ExDraft = { name: string; libraryId?: string; sets: SetDraft[] };
 type LibraryHit = { id: string; name: string; equipment: string; primary: string[] };
@@ -35,8 +41,8 @@ export function WorkoutsView() {
   const [lookup, setLookup] = useState("");
   const [hits, setHits] = useState<LibraryHit[]>([]);
   const toast = useToast();
-  const router = useRouter();
   const coverage = useLoad<Coverage>("/api/workouts/coverage");
+  const [muscle, setMuscle] = useState<string | null>(null);
 
   function startNew() {
     const parts = getZonedParts(new Date());
@@ -112,19 +118,18 @@ export function WorkoutsView() {
       <Link href="/workouts/quick" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0 10px" }}>Quick workout</Link>
       <Link href="/circuits" className="btn" style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "0 0 10px" }}>Circuits</Link>
       <Link href="/exercises" className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>Exercise library</Link>
-      {coverage.data ? (
-        <section className="card" style={{ marginBottom: 16 }}>
+      {coverage.data?.heat ? (
+        <section className="card" style={{ marginBottom: 16 }} data-testid="week-heat">
           <strong>This week</strong>
           <BodyMap
-            primary={coverage.data.primary}
-            secondary={coverage.data.secondary}
-            neglected={coverage.data.neglected}
-            onSelect={(muscle) => router.push(`/exercises?muscle=${muscle}`)}
+            heat={Object.fromEntries(Object.entries(coverage.data.heat).map(([id, row]) => [id, row.bucket]))}
+            selected={muscle}
+            onSelect={(id) => setMuscle((current) => (current === id ? null : id))}
             label="Muscles trained this week"
           />
-          {coverage.data.neglected.length ? (
-            <p className="faint">Quiet so far: {coverage.data.neglected.slice(0, 6).map(muscleLabel).join(", ")}</p>
-          ) : <p className="faint">Every muscle group got some work.</p>}
+          {muscle ? <HeatDetail muscle={muscle} row={coverage.data.heat[muscle]} /> : (
+            <p className="faint">Tap a muscle for this week’s sets.</p>
+          )}
         </section>
       ) : null}
       {loading && !data ? <Loading /> : null}
@@ -209,6 +214,33 @@ function updateExercise(setExercises: React.Dispatch<React.SetStateAction<ExDraf
 }
 function updateSet(setExercises: React.Dispatch<React.SetStateAction<ExDraft[]>>, index: number, setIndex: number, next: SetDraft) {
   setExercises((current) => current.map((exercise, i) => i === index ? { ...exercise, sets: exercise.sets.map((set, j) => (j === setIndex ? next : set)) } : exercise));
+}
+
+function formatVolume(volume: number) {
+  const shown = Number.isInteger(volume) ? String(volume) : volume.toFixed(1);
+  return `${shown} weighted ${volume === 1 ? "set" : "sets"}`;
+}
+
+function HeatDetail({ muscle, row }: { muscle: string; row: HeatRow | undefined }) {
+  if (!row) return null;
+  const label = HEAT_LEGEND.find((item) => item.bucket === row.bucket)?.label ?? "None";
+  return (
+    <div className="heat-detail" data-testid="heat-detail">
+      <strong>{muscleLabel(muscle)}</strong>
+      <p className="muted" style={{ margin: "4px 0 0" }}>{formatVolume(row.volume)} · {label}</p>
+      {row.sessions.length ? (
+        <ul>
+          {row.sessions.map((session) => (
+            <li key={session.id}>
+              <Link href={`/workouts/${session.id}`}>{session.title}</Link>
+              <span className="faint">{session.sets} {session.sets === 1 ? "set" : "sets"} · {formatVolume(session.volume)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="faint">No sets this week.</p>}
+      <Link href={`/exercises?muscle=${encodeURIComponent(muscle)}`}>Best exercises</Link>
+    </div>
+  );
 }
 
 function WorkoutRow({ workout, history = false }: { workout: WorkoutDto; history?: boolean }) {

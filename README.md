@@ -395,7 +395,7 @@ PATCH accepts any of: normal fields, `exercises` (replaces the list), `status` (
 
 `POST /api/bot/workouts/:id/exercises` appends one exercise. Send `{ "libraryId": "Plank" }` and Orbit fills three holds. For a normal lift, send sets yourself or omit them for three sets of 8. The response is the full workout.
 
-`GET /api/bot/workouts/coverage?date=YYYY-MM-DD` is the Monday–Sunday week containing that day (today in Detroit if you omit it). It returns `primary`, `secondary`, and `neglected` muscle ids for sessions marked done.
+`GET /api/bot/workouts/coverage?date=YYYY-MM-DD` is the Monday–Sunday week containing that day (today in Detroit if you omit it). It returns `primary`, `secondary`, and `neglected` muscle ids for sessions marked done, plus `heat` for every muscle. `heat` counts completed sets from circuits, single exercises, and custom workouts: a primary muscle gets 1.0 and a secondary muscle gets 0.5, multiplied by that exercise's 1–5 rating divided by 5. `volume` is the weighted-set total, `bucket` is 0–4 (none, light, moderate, high, max), and 10 weighted sets fills the top bucket. `sessions` lists the workouts that contributed.
 
 ### Exercise library
 

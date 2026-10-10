@@ -14,6 +14,7 @@ import {
   FRONT_UNDER,
   type FigurePart,
 } from "@/lib/body-figure";
+import { HEAT_LEGEND } from "@/lib/heat";
 import { muscleLabel } from "@/lib/muscles";
 
 type Side = "front" | "back";
@@ -48,6 +49,7 @@ export function BodyMap({
   primary = [],
   secondary = [],
   neglected,
+  heat,
   selected,
   onSelect,
   label = "Body map",
@@ -56,6 +58,8 @@ export function BodyMap({
   primary?: string[];
   secondary?: string[];
   neglected?: string[];
+  /** Bucket 0–4 for the weekly heat map. Omitting it keeps primary and secondary colors. */
+  heat?: Record<string, number>;
   selected?: string | null;
   onSelect?: (muscle: string) => void;
   label?: string;
@@ -98,7 +102,10 @@ export function BodyMap({
         </defs>
         <FigureParts parts={[{ d: outline }, ...under]} />
         {muscles.map((shape, index) => {
-          const role = roleFor(shape.id, primary, secondary, neglected, selected);
+          const bucket = heat ? heat[shape.id] ?? 0 : null;
+          const role = heat
+            ? `heat-${bucket}${selected === shape.id ? " heat-on" : ""}`
+            : roleFor(shape.id, primary, secondary, neglected, selected);
           const name = muscleLabel(shape.id);
           const first = !tabbed.has(shape.id);
           tabbed.add(shape.id);
@@ -110,9 +117,11 @@ export function BodyMap({
               clipPath={shape.clip ? `url(#${uid}-${shape.clip})` : undefined}
               data-muscle={shape.id}
               data-role={role || "idle"}
+              data-heat={bucket ?? undefined}
               role={onSelect && first ? "button" : undefined}
               tabIndex={onSelect && first ? 0 : undefined}
               aria-label={onSelect && first ? name : undefined}
+              aria-pressed={onSelect && first ? selected === shape.id : undefined}
               aria-hidden={onSelect && !first ? true : undefined}
               onClick={onSelect ? () => onSelect(shape.id) : undefined}
               onKeyDown={
@@ -132,14 +141,20 @@ export function BodyMap({
         })}
         <FigureParts parts={over} />
       </svg>
-      {compact ? null : (
+      {compact ? null : heat ? (
+        <div className="map-legend" data-testid="heat-legend">
+          {HEAT_LEGEND.map((item) => (
+            <span key={item.label}><i className={`swatch heat-${item.bucket}`} /> {item.label}</span>
+          ))}
+        </div>
+      ) : (
         <div className="map-legend">
           <span><i className="swatch primary" /> Primary</span>
           <span><i className="swatch secondary" /> Secondary</span>
           {neglected ? <span><i className="swatch neglected" /> Not this week</span> : null}
         </div>
       )}
-      {!compact && active.length ? (
+      {!compact && !heat && active.length ? (
         <p className="faint map-caption">
           {[...new Set(active)].map(muscleLabel).join(" · ")}
         </p>

@@ -3,6 +3,7 @@ import { getDb } from "../db";
 import { workoutExercises, workoutSets, workouts } from "../db/schema";
 import { HttpError } from "../errors";
 import { combineMuscles, getExercise, resolveExercise } from "../exercises";
+import { weeklyMuscleHeat } from "../heat";
 import { MUSCLE_IDS } from "../muscles";
 import { addCalendarDays, getZonedParts, todayDateString, zonedDateTimeToUtc, zonedWeekRange } from "../time";
 import { blankToNull } from "../text";
@@ -316,12 +317,32 @@ export async function muscleCoverage(date = todayDateString()) {
       }),
     );
   const hit = combineMuscles(groups);
+  const heat = weeklyMuscleHeat(
+    sessions.map((workout) => ({
+      id: workout.id,
+      title: workout.title,
+      status: workout.status,
+      exercises: workout.exercises.flatMap((exercise) => {
+        const match = resolveExercise(exercise.libraryId, exercise.name);
+        if (!match) return [];
+        return [
+          {
+            sets: exercise.sets,
+            primary: match.primary,
+            secondary: match.secondary,
+            ratings: match.ratings,
+          },
+        ];
+      }),
+    })),
+  );
   return {
     startDate: range.startDate,
     endDate: addCalendarDays(range.startDate, 6),
     primary: hit.primary,
     secondary: hit.secondary,
     neglected: MUSCLE_IDS.filter((id) => !hit.primary.includes(id) && !hit.secondary.includes(id)),
+    heat,
   };
 }
 

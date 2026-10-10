@@ -530,7 +530,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   border-color: rgba(196, 184, 255, 0.6);
   color: #fff;
 }
-.body-map { margin: 8px 0 4px; }
+.body-map { margin: 8px 0 4px; min-width: 0; max-width: 100%; }
 .body-map { touch-action: manipulation; }
 .body-figure {
   width: 100%;
@@ -571,12 +571,47 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   fill: rgba(48, 40, 78, 0.3);
   stroke: rgba(255, 130, 160, 0.85);
 }
-.map-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.map-legend { display: flex; gap: 8px 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; max-width: 100%; }
 .map-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
 .swatch.primary { background: #d8c6ff; }
 .swatch.secondary { background: #7aefff; }
 .swatch.neglected { background: rgba(255, 130, 160, 0.7); }
+.muscle.heat-0 {
+  fill: rgba(36, 30, 58, 0.55);
+  stroke: rgba(140, 128, 176, 0.28);
+  filter: none;
+}
+.muscle.heat-1 {
+  fill: #2c1d78;
+  stroke: #7d6cff;
+  filter: drop-shadow(0 0 3px rgba(60, 40, 150, 0.7));
+}
+.muscle.heat-2 {
+  fill: #6b46e8;
+  stroke: #c4b5ff;
+  filter: drop-shadow(0 0 4px rgba(120, 80, 255, 0.8));
+}
+.muscle.heat-3 {
+  fill: #8eb6ff;
+  stroke: #e7f1ff;
+  filter: drop-shadow(0 0 5px rgba(150, 190, 255, 0.9));
+}
+.muscle.heat-4 {
+  fill: #f7f9ff;
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 7px rgba(236, 244, 255, 0.95));
+}
+.muscle.heat-on { stroke: #ffe7bf; stroke-width: 3.2; }
+.swatch.heat-0 { background: #2a2444; }
+.swatch.heat-1 { background: #2c1d78; }
+.swatch.heat-2 { background: #6b46e8; }
+.swatch.heat-3 { background: #8eb6ff; }
+.swatch.heat-4 { background: #f7f9ff; box-shadow: 0 0 6px rgba(236, 244, 255, 0.9); }
+.heat-detail { min-width: 0; margin-top: 8px; }
+.heat-detail ul { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.heat-detail li { min-width: 0; }
+.heat-detail a { overflow-wrap: anywhere; }
 .map-caption { margin: 8px 0 0; font-size: 13px; }
 .demo {
   position: relative;
