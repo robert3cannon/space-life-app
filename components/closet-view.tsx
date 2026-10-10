@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
+import { classifyPhoto, colorsInPhoto } from "./clothing-detect";
 import { api } from "@/lib/client";
+import { detectionFromScores, matchCategory } from "@/lib/closet-detect";
 import type { ClosetCategoryDto, ClosetItemDto, ClosetSlotName, OutfitDto, OutfitSlotName } from "@/lib/types";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
@@ -29,12 +31,28 @@ type OutfitPayload = { outfit: OutfitDto | null };
 
 type Draft = {
   id: string;
+  local?: boolean;
   name: string;
   categoryId: string;
   colors: string;
   warmth: number;
   tags: string[];
   inLaundry: boolean;
+};
+
+type PendingPiece = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  status: "detecting" | "ready";
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  colors: string[];
+  warmth: number;
+  tags: string[];
+  inLaundry: boolean;
+  lowConfidence: boolean;
 };
 
 function blobOf(canvas: HTMLCanvasElement, type: string, quality: number) {
@@ -125,6 +143,7 @@ export function ClosetView() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
+  const [pending, setPending] = useState<PendingPiece[]>([]);
   const [newCat, setNewCat] = useState({ name: "", slot: "top" as ClosetSlotName });
 
   const closeEditor = useCallback(() => setDraft(null), []);
@@ -148,43 +167,105 @@ export function ClosetView() {
 
   async function upload(list: FileList | null) {
     if (!list?.length) return;
-    setBusy(true);
-    let added = 0;
-    let first: ClosetItemDto | null = null;
-    try {
-      for (const original of Array.from(list)) {
-        let file = original;
-        try {
-          file = await compressClothingPhoto(original);
-        } catch {
-          toast("Couldn't read one of those photos");
-          continue;
-        }
-        const body = new FormData();
-        body.set("file", file);
-        body.set("name", file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ").trim());
-        if (filter !== "all") body.set("categoryId", filter);
-        body.set("tags", "casual");
-        body.set("warmth", "3");
-        const item = await api<ClosetItemDto>("/api/closet/items", { method: "POST", body });
-        added += 1;
-        first ??= item;
+    const prepared: PendingPiece[] = [];
+    for (const original of Array.from(list)) {
+      try {
+        const file = await compressClothingPhoto(original);
+        prepared.push({
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+          status: "detecting",
+          name: "Detecting...",
+          categoryId: "",
+          categoryName: "",
+          colors: [],
+          warmth: 3,
+          tags: ["casual"],
+          inLaundry: false,
+          lowConfidence: false,
+        });
+      } catch {
+        toast("Couldn't read one of those photos");
       }
-      await reloadAll();
-      if (first) openItem(first);
-      if (added) toast(added === 1 ? "Added to the closet" : `Added ${added} pieces`);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Couldn't add that photo");
-    } finally {
-      setBusy(false);
-      if (libraryRef.current) libraryRef.current.value = "";
-      if (cameraRef.current) cameraRef.current.value = "";
     }
+    if (libraryRef.current) libraryRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (!prepared.length) return;
+    setPending((current) => [...current, ...prepared]);
+    let categories = closet.data?.categories ?? [];
+    if (!categories.length) {
+      try {
+        categories = (await api<ClosetPayload>("/api/closet/items")).categories;
+      } catch {
+        categories = [];
+      }
+    }
+    for (const piece of prepared) {
+      try {
+        const colors = await colorsInPhoto(piece.file);
+        const scores = await classifyPhoto(piece.file);
+        const guess = detectionFromScores(scores, colors);
+        const category = matchCategory(categories, guess.category, guess.slot);
+        const tags = guess.tags.filter((tag): tag is (typeof TAGS)[number] => (TAGS as readonly string[]).includes(tag));
+        setPending((rows) => rows.map((row) => row.id === piece.id ? {
+          ...row,
+          status: "ready",
+          name: guess.name,
+          categoryId: category?.id ?? "",
+          categoryName: category?.name ?? guess.category,
+          colors: guess.colors,
+          warmth: guess.warmth,
+          tags,
+          lowConfidence: guess.lowConfidence,
+        } : row));
+      } catch {
+        setPending((rows) => rows.map((row) => row.id === piece.id ? {
+          ...row,
+          status: "ready",
+          name: "New item",
+          categoryId: categories[0]?.id ?? "",
+          categoryName: categories[0]?.name ?? "",
+          lowConfidence: true,
+        } : row));
+      }
+    }
+  }
+
+  function openPending(piece: PendingPiece) {
+    if (piece.status !== "ready") return;
+    setDraft({
+      id: piece.id,
+      local: true,
+      name: piece.name,
+      categoryId: piece.categoryId,
+      colors: piece.colors.join(", "),
+      warmth: piece.warmth,
+      tags: piece.tags,
+      inLaundry: piece.inLaundry,
+    });
   }
 
   async function saveDraft(event: React.FormEvent) {
     event.preventDefault();
     if (!draft) return;
+    const colors = draft.colors.split(",").map((part) => part.trim()).filter(Boolean);
+    const categoryName = categories.find((category) => category.id === draft.categoryId)?.name ?? "";
+    if (draft.local) {
+      setPending((rows) => rows.map((row) => row.id === draft.id ? {
+        ...row,
+        name: draft.name.trim(),
+        categoryId: draft.categoryId,
+        categoryName,
+        colors,
+        warmth: draft.warmth,
+        tags: draft.tags,
+        inLaundry: draft.inLaundry,
+        lowConfidence: false,
+      } : row));
+      setDraft(null);
+      return;
+    }
     setBusy(true);
     try {
       await api(`/api/closet/items/${draft.id}`, {
@@ -192,7 +273,7 @@ export function ClosetView() {
         body: JSON.stringify({
           name: draft.name.trim(),
           categoryId: draft.categoryId,
-          colors: draft.colors.split(",").map((part) => part.trim()).filter(Boolean),
+          colors,
           warmth: draft.warmth,
           tags: draft.tags,
           inLaundry: draft.inLaundry,
@@ -210,6 +291,15 @@ export function ClosetView() {
 
   async function removeItem() {
     if (!draft) return;
+    if (draft.local) {
+      setPending((rows) => {
+        const found = rows.find((row) => row.id === draft.id);
+        if (found) URL.revokeObjectURL(found.previewUrl);
+        return rows.filter((row) => row.id !== draft.id);
+      });
+      setDraft(null);
+      return;
+    }
     setBusy(true);
     try {
       await api(`/api/closet/items/${draft.id}`, { method: "DELETE" });
@@ -264,6 +354,33 @@ export function ClosetView() {
     }
   }
 
+  async function addDetected() {
+    const ready = pending.filter((piece) => piece.status === "ready" && piece.categoryId);
+    if (!ready.length) return;
+    setBusy(true);
+    try {
+      for (const piece of ready) {
+        const body = new FormData();
+        body.set("file", piece.file);
+        body.set("name", piece.name);
+        body.set("categoryId", piece.categoryId);
+        body.set("colors", piece.colors.join(", "));
+        body.set("warmth", String(piece.warmth));
+        body.set("tags", piece.tags.join(","));
+        body.set("inLaundry", piece.inLaundry ? "true" : "false");
+        await api<ClosetItemDto>("/api/closet/items", { method: "POST", body });
+        URL.revokeObjectURL(piece.previewUrl);
+      }
+      setPending((rows) => rows.filter((piece) => !ready.some((item) => item.id === piece.id)));
+      toast(ready.length === 1 ? "Added to the closet" : `Added ${ready.length} pieces`);
+      await reloadAll();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't add those photos");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function renameCategory(category: ClosetCategoryDto, name: string) {
     const next = name.trim();
     if (!next || next === category.name) return;
@@ -289,6 +406,7 @@ export function ClosetView() {
 
   const items = closet.data?.items ?? [];
   const categories = closet.data?.categories ?? [];
+  const detecting = pending.some((piece) => piece.status === "detecting");
   const visible = filter === "all" ? items : items.filter((item) => item.categoryId === filter);
   const pick = outfit.data?.outfit ?? null;
 
@@ -331,6 +449,36 @@ export function ClosetView() {
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => void upload(event.target.files)} />
         <input ref={libraryRef} type="file" accept="image/*" multiple hidden onChange={(event) => void upload(event.target.files)} />
       </div>
+
+      {pending.length ? (
+        <section data-testid="detect-review" aria-label="Review detected clothes">
+          <div className="section-title">
+            <h2>Review</h2>
+            <span className="muted">{detecting ? "Detecting..." : `${pending.length} ready`}</span>
+          </div>
+          <div className="closet-grid">
+            {pending.map((piece) => (
+              <button
+                key={piece.id}
+                className={`closet-tile${piece.lowConfidence && piece.status === "ready" ? " flagged" : ""}`}
+                type="button"
+                data-testid="review-item"
+                data-confidence={piece.lowConfidence ? "low" : "ok"}
+                onClick={() => openPending(piece)}
+              >
+                <img src={piece.previewUrl} alt="" />
+                <span className="closet-tile-copy">
+                  <strong>{piece.name}</strong>
+                  {piece.status === "detecting" ? <span>Detecting...</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button className="btn" type="button" data-testid="add-detected" style={{ marginTop: 12 }} disabled={busy || detecting || pending.every((piece) => !piece.categoryId)} onClick={() => void addDetected()}>
+            {pending.length === 1 ? "Add to closet" : `Add ${pending.length} to closet`}
+          </button>
+        </section>
+      ) : null}
 
       <div className="chips closet-filters" role="tablist" aria-label="Categories">
         <button className={`chip ${filter === "all" ? "on" : ""}`} type="button" onClick={() => setFilter("all")}>All</button>
