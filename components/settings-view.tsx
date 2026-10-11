@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { GEAR_OPTIONS, type GearId } from "@/lib/equipment";
+import { SKIN_TONES } from "@/lib/skin";
 import type { AppSettings } from "@/lib/types";
 import { useToast } from "./toast";
 import { useLoad } from "./use-load";
@@ -53,6 +54,7 @@ export function SettingsView() {
   const [dumbbellCount, setDumbbellCount] = useState("2");
   const [soundOn, setSoundOn] = useState(true);
   const [soundVolume, setSoundVolume] = useState("70");
+  const [skinTone, setSkinTone] = useState<AppSettings["skinTone"]>("fair");
   const toast = useToast();
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export function SettingsView() {
     setDumbbellCount(String(settings.data.equipment.dumbbellCount));
     setSoundOn(settings.data.circuitAudio.enabled);
     setSoundVolume(String(settings.data.circuitAudio.volume));
+    setSkinTone(settings.data.skinTone);
   }, [settings.data]);
 
   async function enable() {
@@ -154,6 +157,7 @@ export function SettingsView() {
             dumbbellCount: Number(dumbbellCount),
           },
           circuitAudio: { enabled: soundOn, volume: Number(soundVolume) },
+          skinTone,
         }),
       });
       toast("Saved");
@@ -205,6 +209,28 @@ export function SettingsView() {
             {blocked ? "Add to Home Screen first" : subscribed ? "Notifications on" : "Enable notifications"}
           </button>
           <button className="btn-ghost" type="button" disabled={busy || !subscribed} onClick={() => void test()}>Send a test</button>
+        </div>
+      </section>
+
+      <section className="card" style={{ marginTop: 12 }}>
+        <strong>Model skin tone</strong>
+        <p className="faint">The person in On model uses this tone.</p>
+        <div className="chips" role="group" aria-label="Skin tone" style={{ marginTop: 12 }}>
+          {SKIN_TONES.map((tone) => (
+            <button
+              key={tone.id}
+              className={`chip ${skinTone === tone.id ? "on" : ""}`}
+              type="button"
+              data-testid={`skin-${tone.id}`}
+              onClick={() => {
+                setSkinTone(tone.id);
+                void api("/api/settings", { method: "PATCH", body: JSON.stringify({ skinTone: tone.id }) }).then(() => settings.reload()).catch((err) => toast(err instanceof Error ? err.message : "Couldn't save that tone"));
+              }}
+            >
+              <span className="skin-swatch" style={{ background: tone.base }} />
+              {tone.label}
+            </button>
+          ))}
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import { eq, and, ne, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { reminders, settings } from "../db/schema";
 import { DEFAULT_SETTINGS } from "../defaults";
+import { skinToneById } from "../skin";
 import { cleanGear, DEFAULT_EQUIPMENT } from "../equipment";
 import { TIMEZONE } from "../constants";
 import type { AppSettings } from "../types";
@@ -37,6 +38,7 @@ function normalize(value: AppSettings): AppSettings {
       enabled: typeof value.circuitAudio?.enabled === "boolean" ? value.circuitAudio.enabled : DEFAULT_SETTINGS.circuitAudio.enabled,
       volume: clampVolume(value.circuitAudio?.volume),
     },
+    skinTone: skinToneById(value.skinTone).id,
   };
 }
 

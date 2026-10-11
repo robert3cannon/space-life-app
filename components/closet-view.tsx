@@ -6,7 +6,9 @@ import { classifyPhoto, classifyPresentation, colorsInPhoto, scoreClosetPrompt }
 import { cutOutClothing } from "./clothing-cutout";
 import { compressClothingPhoto, turnPhotoFile } from "./photo-file";
 import { OutfitModel } from "./outfit-model";
+import { PhotoFlip } from "./photo-flip";
 import { api } from "@/lib/client";
+import { FITS, suggestFit, type Fit } from "@/lib/closet-fit";
 import type { PhotoTurn } from "@/lib/image-orient";
 import { detectionFromScores, matchCategory, wornByPerson, type LabelScore } from "@/lib/closet-detect";
 import { OUTFIT_SLOTS } from "@/lib/outfit-picker";
@@ -42,12 +44,19 @@ type Draft = {
   id: string;
   local?: boolean;
   previewUrl: string | null;
+  backPreviewUrl: string | null;
+  face: "front" | "back";
   name: string;
   categoryId: string;
   colors: string;
   warmth: number;
   tags: string[];
   inLaundry: boolean;
+  fit: Fit;
+  weatherNotes: string;
+  ownership: "owned" | "borrowed";
+  pairsWith: string[];
+  avoidWith: string[];
 };
 
 type PendingPiece = {
@@ -66,6 +75,15 @@ type PendingPiece = {
   inLaundry: boolean;
   lowConfidence: boolean;
   worn: boolean;
+  backFile?: File | null;
+  backPreviewUrl?: string;
+  backCutout?: File | null;
+  backCutoutPreviewUrl?: string;
+  fit: Fit;
+  weatherNotes: string;
+  ownership: "owned" | "borrowed";
+  pairsWith: string[];
+  avoidWith: string[];
 };
 
 function weatherLine(outfit: OutfitDto) {
@@ -85,7 +103,7 @@ function OutfitPhotos({ outfit, compact = false }: { outfit: OutfitDto; compact?
     <div className={compact ? "today-outfit-row" : "outfit-row"}>
       {shown.map((item) => (
         <figure key={item.slot} className="outfit-slot">
-          {item.imageUrl ? <img src={item.imageUrl} alt={item.name} /> : <span className="outfit-fallback" aria-hidden />}
+          <PhotoFlip front={item.imageUrl} back={item.backImageUrl} alt={item.name} />
           <figcaption>{compact ? SLOT_LABEL[item.slot] : item.name}</figcaption>
         </figure>
       ))}
@@ -150,12 +168,19 @@ export function ClosetView() {
     setDraft({
       id: item.id,
       previewUrl: item.imageUrl,
+      backPreviewUrl: item.backImageUrl,
+      face: "front",
       name: item.name,
       categoryId: item.categoryId,
       colors: item.colors.join(", "),
       warmth: item.warmth,
       tags: item.tags.filter((tag): tag is (typeof TAGS)[number] => (TAGS as readonly string[]).includes(tag)),
       inLaundry: item.inLaundry,
+      fit: item.fit,
+      weatherNotes: item.weatherNotes,
+      ownership: item.ownership,
+      pairsWith: item.pairsWith,
+      avoidWith: item.avoidWith,
     });
   }
 
@@ -179,6 +204,11 @@ export function ClosetView() {
           inLaundry: false,
           lowConfidence: false,
           worn: false,
+          fit: suggestFit(original.name),
+          weatherNotes: "",
+          ownership: "owned",
+          pairsWith: [],
+          avoidWith: [],
         });
       } catch {
         toast("Couldn't read one of those photos");
@@ -217,9 +247,10 @@ export function ClosetView() {
         categoryId: categories[0]?.id ?? "",
         categoryName: categories[0]?.name ?? "",
         colors,
-        lowConfidence: true,
-        worn,
-      };
+          lowConfidence: true,
+          worn,
+          fit: suggestFit("New item", categories[0]?.name ?? ""),
+        };
       if (scores) {
         const guess = detectionFromScores(scores, colors);
         const category = matchCategory(categories, guess.category, guess.slot);
@@ -233,6 +264,7 @@ export function ClosetView() {
           tags,
           lowConfidence: guess.lowConfidence,
           worn,
+          fit: suggestFit(guess.name, category?.name ?? guess.category),
         };
       }
       const modelCutout = worn ? null : cutout;
@@ -247,19 +279,38 @@ export function ClosetView() {
       id: piece.id,
       local: true,
       previewUrl: piece.cutoutPreviewUrl || piece.previewUrl,
+      backPreviewUrl: piece.backCutoutPreviewUrl || piece.backPreviewUrl || null,
+      face: "front",
       name: piece.name,
       categoryId: piece.categoryId,
       colors: piece.colors.join(", "),
       warmth: piece.warmth,
       tags: piece.tags,
       inLaundry: piece.inLaundry,
+      fit: piece.fit,
+      weatherNotes: piece.weatherNotes,
+      ownership: piece.ownership,
+      pairsWith: piece.pairsWith,
+      avoidWith: piece.avoidWith,
     });
   }
 
-  async function turnPending(piece: PendingPiece, turn: PhotoTurn) {
+  async function turnPending(piece: PendingPiece, turn: PhotoTurn, face: "front" | "back" = "front") {
     if (piece.status !== "ready") return;
     setBusy(true);
     try {
+      if (face === "back") {
+        if (!piece.backFile) return;
+        const backFile = await turnPhotoFile(piece.backFile, turn);
+        const backCutout = piece.backCutout ? await turnPhotoFile(piece.backCutout, turn) : null;
+        if (piece.backPreviewUrl) URL.revokeObjectURL(piece.backPreviewUrl);
+        if (piece.backCutoutPreviewUrl) URL.revokeObjectURL(piece.backCutoutPreviewUrl);
+        const backPreviewUrl = URL.createObjectURL(backFile);
+        const backCutoutPreviewUrl = backCutout ? URL.createObjectURL(backCutout) : undefined;
+        setPending((rows) => rows.map((row) => (row.id === piece.id ? { ...row, backFile, backPreviewUrl, backCutout, backCutoutPreviewUrl } : row)));
+        setDraft((current) => (current?.local && current.id === piece.id ? { ...current, backPreviewUrl: backCutoutPreviewUrl || backPreviewUrl } : current));
+        return;
+      }
       const file = await turnPhotoFile(piece.file, turn);
       const cutout = piece.cutout ? await turnPhotoFile(piece.cutout, turn) : null;
       URL.revokeObjectURL(piece.previewUrl);
@@ -277,21 +328,52 @@ export function ClosetView() {
 
   async function orient(turn: PhotoTurn) {
     if (!draft) return;
+    const face = draft.face;
     if (draft.local) {
       const piece = pending.find((row) => row.id === draft.id);
-      if (piece) await turnPending(piece, turn);
+      if (piece) await turnPending(piece, turn, face);
       return;
     }
     setBusy(true);
     try {
       const item = await api<ClosetItemDto>(`/api/closet/items/${draft.id}/orient`, {
         method: "POST",
-        body: JSON.stringify({ turn }),
+        body: JSON.stringify({ turn, side: face }),
       });
-      setDraft((current) => (current && current.id === item.id ? { ...current, previewUrl: item.imageUrl } : current));
+      setDraft((current) => (current && current.id === item.id ? { ...current, previewUrl: item.imageUrl, backPreviewUrl: item.backImageUrl } : current));
       await reloadAll();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Couldn't turn that photo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addBack(file: File | undefined, piece?: PendingPiece) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const compressed = await compressClothingPhoto(file);
+      const cutout = await cutOutClothing(compressed);
+      if (piece) {
+        if (piece.backPreviewUrl) URL.revokeObjectURL(piece.backPreviewUrl);
+        if (piece.backCutoutPreviewUrl) URL.revokeObjectURL(piece.backCutoutPreviewUrl);
+        const backPreviewUrl = URL.createObjectURL(compressed);
+        const backCutoutPreviewUrl = cutout ? URL.createObjectURL(cutout) : undefined;
+        setPending((rows) => rows.map((row) => (row.id === piece.id ? { ...row, backFile: compressed, backPreviewUrl, backCutout: cutout, backCutoutPreviewUrl } : row)));
+        setDraft((current) => (current?.id === piece.id ? { ...current, backPreviewUrl: backCutoutPreviewUrl || backPreviewUrl, face: "back" } : current));
+        return;
+      }
+      if (!draft || draft.local) return;
+      const body = new FormData();
+      body.set("file", compressed);
+      if (cutout) body.set("cutout", cutout);
+      const item = await api<ClosetItemDto>(`/api/closet/items/${draft.id}/back`, { method: "POST", body });
+      setDraft((current) => (current && current.id === item.id ? { ...current, backPreviewUrl: item.backImageUrl, face: "back" } : current));
+      toast("Back photo saved");
+      await reloadAll();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't add the back photo");
     } finally {
       setBusy(false);
     }
@@ -313,6 +395,11 @@ export function ClosetView() {
         tags: draft.tags,
         inLaundry: draft.inLaundry,
         lowConfidence: false,
+        fit: draft.fit,
+        weatherNotes: draft.weatherNotes,
+        ownership: draft.ownership,
+        pairsWith: draft.pairsWith,
+        avoidWith: draft.avoidWith,
       } : row));
       setDraft(null);
       return;
@@ -328,6 +415,11 @@ export function ClosetView() {
           warmth: draft.warmth,
           tags: draft.tags,
           inLaundry: draft.inLaundry,
+          fit: draft.fit,
+          weatherNotes: draft.weatherNotes,
+          ownership: draft.ownership,
+          pairsWith: draft.pairsWith,
+          avoidWith: draft.avoidWith,
         }),
       });
       setDraft(null);
@@ -348,6 +440,8 @@ export function ClosetView() {
         if (found) {
           URL.revokeObjectURL(found.previewUrl);
           if (found.cutoutPreviewUrl) URL.revokeObjectURL(found.cutoutPreviewUrl);
+          if (found.backPreviewUrl) URL.revokeObjectURL(found.backPreviewUrl);
+          if (found.backCutoutPreviewUrl) URL.revokeObjectURL(found.backCutoutPreviewUrl);
         }
         return rows.filter((row) => row.id !== draft.id);
       });
@@ -446,10 +540,19 @@ export function ClosetView() {
         body.set("warmth", String(piece.warmth));
         body.set("tags", piece.tags.join(","));
         body.set("inLaundry", piece.inLaundry ? "true" : "false");
+        body.set("fit", piece.fit);
+        body.set("weatherNotes", piece.weatherNotes);
+        body.set("ownership", piece.ownership);
+        body.set("pairsWith", piece.pairsWith.join(","));
+        body.set("avoidWith", piece.avoidWith.join(","));
         if (piece.cutout) body.set("cutout", piece.cutout);
+        if (piece.backFile) body.set("back", piece.backFile);
+        if (piece.backCutout) body.set("backCutout", piece.backCutout);
         await api<ClosetItemDto>("/api/closet/items", { method: "POST", body });
         URL.revokeObjectURL(piece.previewUrl);
         if (piece.cutoutPreviewUrl) URL.revokeObjectURL(piece.cutoutPreviewUrl);
+        if (piece.backPreviewUrl) URL.revokeObjectURL(piece.backPreviewUrl);
+        if (piece.backCutoutPreviewUrl) URL.revokeObjectURL(piece.backCutoutPreviewUrl);
       }
       setPending((rows) => rows.filter((piece) => !ready.some((item) => item.id === piece.id)));
       toast(ready.length === 1 ? "Added to the closet" : `Added ${ready.length} pieces`);
@@ -587,7 +690,11 @@ export function ClosetView() {
                 data-confidence={piece.lowConfidence ? "low" : "ok"}
               >
                 <button className="closet-tile-open" type="button" onClick={() => openPending(piece)}>
-                  <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
+                  {piece.backPreviewUrl ? (
+                    <PhotoFlip front={piece.cutoutPreviewUrl || piece.previewUrl} back={piece.backCutoutPreviewUrl || piece.backPreviewUrl} />
+                  ) : (
+                    <img src={piece.cutoutPreviewUrl || piece.previewUrl} alt="" />
+                  )}
                   <span className="closet-tile-copy">
                     <strong>{piece.name}</strong>
                     {piece.status === "detecting" ? <span>Detecting...</span> : piece.status === "cutting" ? <span>Cutting out...</span> : piece.worn ? <span className="review-flag" data-testid="review-flag">Best with a flat photo of just the clothing</span> : piece.lowConfidence ? <span className="review-flag" data-testid="review-flag">Check this · {piece.categoryName}</span> : <span>{piece.categoryName} · warmth {piece.warmth}</span>}
@@ -599,6 +706,12 @@ export function ClosetView() {
                     <button type="button" data-testid="rotate-right" aria-label="Rotate right" disabled={busy} onClick={() => void turnPending(piece, "right")}>Right</button>
                     <button type="button" data-testid="flip-photo" aria-label="Flip" disabled={busy} onClick={() => void turnPending(piece, "flip")}>Flip</button>
                   </div>
+                ) : null}
+                {piece.status === "ready" ? (
+                  <label className="back-photo">
+                    Add back photo
+                    <input type="file" accept="image/*" hidden data-testid="add-back-photo" disabled={busy} onChange={(event) => { void addBack(event.target.files?.[0], piece); event.target.value = ""; }} />
+                  </label>
                 ) : null}
               </article>
             ))}
@@ -625,20 +738,36 @@ export function ClosetView() {
       <div className="closet-grid" data-testid="closet-grid">
         {closet.data && visible.length === 0 ? <p className="muted closet-empty">No clothes in this category yet.</p> : null}
         {visible.map((item) => (
-          <button key={item.id} className="closet-tile" type="button" data-testid="closet-item" onClick={() => openItem(item)}>
-            {item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span className="outfit-fallback" />}
-            <span className="closet-tile-copy">
-              <strong>{item.name}</strong>
-              <span>{item.inLaundry ? "In laundry" : item.category}</span>
-            </span>
-          </button>
+          <article key={item.id} className="closet-tile" data-testid="closet-item">
+            {item.backImageUrl ? (
+              <PhotoFlip front={item.imageUrl} back={item.backImageUrl} />
+            ) : (
+              <button className="closet-tile-open" type="button" onClick={() => openItem(item)}>
+                {item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span className="outfit-fallback" />}
+              </button>
+            )}
+            <button className="closet-tile-open" type="button" onClick={() => openItem(item)}>
+              <span className="closet-tile-copy">
+                <strong>{item.name}</strong>
+                <span>{item.inLaundry ? "In laundry" : item.category}</span>
+              </span>
+            </button>
+          </article>
         ))}
       </div>
 
       <Sheet open={Boolean(draft)} title="Edit piece" onClose={closeEditor}>
         {draft ? (
           <form data-testid="closet-editor" onSubmit={(event) => void saveDraft(event)}>
-            {draft.previewUrl ? <img className="editor-preview" src={draft.previewUrl} alt="" data-testid="editor-preview" /> : null}
+            {draft.backPreviewUrl ? (
+              <div className="chips" role="group" aria-label="Photo side">
+                <button className={`chip ${draft.face === "front" ? "on" : ""}`} type="button" onClick={() => setDraft({ ...draft, face: "front" })}>Front</button>
+                <button className={`chip ${draft.face === "back" ? "on" : ""}`} type="button" data-testid="editor-back" onClick={() => setDraft({ ...draft, face: "back" })}>Back</button>
+              </div>
+            ) : null}
+            {(draft.face === "back" ? draft.backPreviewUrl : draft.previewUrl) ? (
+              <img className="editor-preview" src={(draft.face === "back" ? draft.backPreviewUrl : draft.previewUrl) || ""} alt="" data-testid="editor-preview" />
+            ) : null}
             <div className="orient-row" role="group" aria-label="Turn photo">
               <button type="button" data-testid="rotate-left" aria-label="Rotate left" disabled={busy} onClick={() => void orient("left")}>Left</button>
               <button type="button" data-testid="rotate-right" aria-label="Rotate right" disabled={busy} onClick={() => void orient("right")}>Right</button>
@@ -681,6 +810,51 @@ export function ClosetView() {
                 );
               })}
             </div>
+            <label className="field">
+              <span>Fit</span>
+              <select data-testid="item-fit" value={draft.fit} onChange={(event) => setDraft({ ...draft, fit: event.target.value as Fit })}>
+                {FITS.map((fit) => (
+                  <option key={fit} value={fit}>{fit}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Weather notes</span>
+              <input data-testid="weather-notes" value={draft.weatherNotes} maxLength={120} placeholder="bad in rain" onChange={(event) => setDraft({ ...draft, weatherNotes: event.target.value })} />
+            </label>
+            <label className="field">
+              <span>Whose</span>
+              <select data-testid="item-ownership" value={draft.ownership} onChange={(event) => setDraft({ ...draft, ownership: event.target.value as Draft["ownership"] })}>
+                <option value="owned">Owned</option>
+                <option value="borrowed">Borrowed</option>
+              </select>
+            </label>
+            <p className="faint">Pairs well</p>
+            <div className="tag-wrap">
+              {items.filter((item) => item.id !== draft.id).map((item) => {
+                const on = draft.pairsWith.includes(item.id);
+                return (
+                  <button key={item.id} className={`chip ${on ? "on" : ""}`} type="button" aria-pressed={on} onClick={() => setDraft({ ...draft, pairsWith: on ? draft.pairsWith.filter((id) => id !== item.id) : [...draft.pairsWith, item.id] })}>
+                    {item.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="faint">Avoid with</p>
+            <div className="tag-wrap">
+              {items.filter((item) => item.id !== draft.id).map((item) => {
+                const on = draft.avoidWith.includes(item.id);
+                return (
+                  <button key={item.id} className={`chip ${on ? "on" : ""}`} type="button" aria-pressed={on} onClick={() => setDraft({ ...draft, avoidWith: on ? draft.avoidWith.filter((id) => id !== item.id) : [...draft.avoidWith, item.id] })}>
+                    {item.name}
+                  </button>
+                );
+              })}
+            </div>
+            <label className="back-photo">
+              Add back photo
+              <input type="file" accept="image/*" hidden data-testid="add-back-photo" disabled={busy} onChange={(event) => { const piece = draft.local ? pending.find((row) => row.id === draft.id) : undefined; void addBack(event.target.files?.[0], piece); event.target.value = ""; }} />
+            </label>
             <label className="field">
               <span>Laundry</span>
               <select value={draft.inLaundry ? "yes" : "no"} onChange={(event) => setDraft({ ...draft, inLaundry: event.target.value === "yes" })}>

@@ -261,6 +261,7 @@ export const settingsPatchSchema = z.object({
       time: timeField,
     })
     .optional(),
+  skinTone: z.enum(["porcelain", "fair", "olive", "tan", "brown", "deep"]).optional(),
 });
 
 export const waterCreateSchema = z.object({
@@ -333,10 +334,16 @@ export const closetItemPatchSchema = z.object({
   warmth: z.number().int().min(1).max(5).optional(),
   tags: z.array(z.enum(["casual", "gym", "dressy", "class", "work"])).max(5).optional(),
   inLaundry: z.boolean().optional(),
+  fit: z.enum(["slim", "straight", "relaxed", "oversized", "cropped", "hip-length"]).optional(),
+  weatherNotes: z.string().trim().max(120).optional(),
+  ownership: z.enum(["owned", "borrowed"]).optional(),
+  pairsWith: z.array(z.string().uuid()).max(20).optional(),
+  avoidWith: z.array(z.string().uuid()).max(20).optional(),
 });
 
 export const closetOrientSchema = z.object({
   turn: z.enum(["left", "right", "flip"]),
+  side: z.enum(["front", "back"]).optional(),
 });
 
 export const closetCategorySchema = z.object({

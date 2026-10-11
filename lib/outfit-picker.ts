@@ -1,3 +1,4 @@
+import type { Fit, Ownership } from "./closet-fit";
 import { hintMatches, itemKindList, parseOutfitPrompt, requestedHatStyle, requestedLayerKind, type OutfitWish } from "./outfit-prompt";
 
 export const CLOSET_SLOTS = ["top", "bottom", "layer", "shoes", "hat", "extra"] as const;
@@ -49,6 +50,11 @@ export type PickItem = {
   inLaundry: boolean;
   /** Last worn date, YYYY-MM-DD, before the day being planned. */
   lastWorn: string | null;
+  fit?: Fit;
+  weatherNotes?: string;
+  ownership?: Ownership;
+  pairsWith?: string[];
+  avoidWith?: string[];
 };
 
 export type WeatherSnap = {
@@ -165,7 +171,23 @@ function wishAdjustment(item: PickItem, wish: OutfitWish, clip: number) {
   return score;
 }
 
-function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: PickItem | null, wish: OutfitWish | null, clip: number) {
+function badInRain(item: PickItem) {
+  const notes = (item.weatherNotes ?? "").toLowerCase();
+  if (item.slot === "shoes" && item.name.toLowerCase().includes("mesh")) return true;
+  return notes.includes("rain");
+}
+
+function fitPairScore(item: PickItem, partner: PickItem | null) {
+  if (!partner) return 0;
+  let score = 0;
+  if ((item.pairsWith ?? []).includes(partner.id) || (partner.pairsWith ?? []).includes(item.id)) score += 12;
+  if ((item.avoidWith ?? []).includes(partner.id) || (partner.avoidWith ?? []).includes(item.id)) score -= 40;
+  if (item.slot === "bottom" && partner.fit === "oversized" && item.fit === "straight") score += 8;
+  if (item.slot === "bottom" && partner.fit === "hip-length" && item.fit === "slim" && item.name.toLowerCase().includes("jogger")) score += 10;
+  return score;
+}
+
+function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: PickItem | null, wish: OutfitWish | null, clip: number, raining: boolean) {
   let score = wish ? wishAdjustment(item, wish, clip) : clip * CLIP_NUDGE;
   if (item.tags.includes(occasion)) score += 8;
   else if (item.tags.includes("casual") || item.tags.length === 0) score += occasion === "casual" ? 3 : 1;
@@ -197,6 +219,8 @@ function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: P
     else score -= 40;
   }
   if (partner && item.slot !== "top") score += colorsPair(partner.colors, item.colors) ? 6 : -5;
+  score += fitPairScore(item, partner);
+  if (raining && badInRain(item)) score -= 70;
   return score;
 }
 
@@ -230,12 +254,15 @@ export function pickOutfit(input: {
   weatherLive?: boolean;
   prompt?: string;
   clipScores?: Record<string, number>;
+  raining?: boolean;
 }): { slots: Partial<Record<OutfitSlot, string>>; reason: string } {
   const salt = input.salt ?? 0;
   const avoid = new Set(input.avoidIds ?? []);
   const wish = input.prompt?.trim() ? parseOutfitPrompt(input.prompt) : null;
   const occasion = wish?.occasion ?? input.occasion;
-  const available = input.items.filter((item) => !item.inLaundry);
+  const allowBorrowed = Boolean(wish?.allowBorrowed);
+  const wearable = (item: PickItem) => allowBorrowed || (item.ownership ?? "owned") !== "borrowed";
+  const available = input.items.filter((item) => !item.inLaundry && wearable(item));
   const relaxed = available.filter((item) => !recent(item, input.date));
   const base = relaxed.length ? relaxed : available;
   const named = wish ? available.filter((item) => wish.includes.some((hint) => hintMatches(item, hint))) : [];
@@ -254,7 +281,7 @@ export function pickOutfit(input: {
   function ranked(candidates: PickItem[]) {
     return keepAvailable(candidates, wish).map((item) => ({
       item,
-      score: scoreItem(item, input.tempF, occasion, chosen.top ?? null, wish, clipOf(item)),
+      score: scoreItem(item, input.tempF, occasion, chosen.top ?? null, wish, clipOf(item), Boolean(input.raining)),
     }));
   }
 
@@ -262,7 +289,7 @@ export function pickOutfit(input: {
     const lockedId = input.locked?.[slot];
     if (lockedId && input.swapSlot !== slot) {
       const locked = byId.get(lockedId);
-      if (locked && !locked.inLaundry && locked.slot === slot) {
+      if (locked && !locked.inLaundry && locked.slot === slot && wearable(locked)) {
         chosen[slot] = locked;
         continue;
       }

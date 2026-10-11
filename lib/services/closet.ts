@@ -1,5 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { deleteItemImage, imageByteLimit, readItemCutout, readItemImage, signClosetImage, writeItemCutout, writeItemImage } from "../closet-image";
+import { deleteItemImage, imageByteLimit, readItemBack, readItemBackCutout, readItemCutout, readItemImage, signClosetImage, writeItemBack, writeItemBackCutout, writeItemCutout, writeItemImage, type ClosetAsset } from "../closet-image";
 import { getDb, getSql } from "../db";
 import { closetCategories, closetItems, outfitSlots, outfits } from "../db/schema";
 import { HttpError } from "../errors";
@@ -14,6 +14,7 @@ import {
   type StyleTag,
   type WeatherSnap,
 } from "../outfit-picker";
+import { isFit, type Fit, type Ownership } from "../closet-fit";
 import type { PhotoTurn } from "../image-orient";
 import { turnPhotoBytes } from "../photo-turn";
 import { todayDateString, zonedDayRange } from "../time";
@@ -106,19 +107,15 @@ function withVersion(url: string, updatedAt: Date) {
   return url.includes("?") ? `${url}&v=${version}` : `${url}?v=${version}`;
 }
 
+function assetUrl(id: string, kind: ClosetAsset, present: boolean, origin: string | null, signed: boolean, updatedAt: Date) {
+  if (!present) return null;
+  const path = signed && origin ? signClosetImage(id, origin, Date.now(), undefined, kind) : `/api/closet/items/${id}/${kind === "image" ? "image" : kind}`;
+  return withVersion(path, updatedAt);
+}
+
 function itemDto(row: typeof closetItems.$inferSelect, category: ClosetCategoryDto, origin: string | null, signed: boolean): ClosetItemDto {
-  const hasImage = Boolean(row.imageType || row.blobPathname);
-  const hasCutout = Boolean(row.cutoutType || row.cutoutBlobPathname);
-  let imageUrl: string | null = null;
-  let cutoutUrl: string | null = null;
-  if (hasImage) {
-    const path = signed && origin ? signClosetImage(row.id, origin) : `/api/closet/items/${row.id}/image`;
-    imageUrl = withVersion(path, row.updatedAt);
-  }
-  if (hasCutout) {
-    const path = signed && origin ? signClosetImage(row.id, origin, Date.now(), undefined, "cutout") : `/api/closet/items/${row.id}/cutout`;
-    cutoutUrl = withVersion(path, row.updatedAt);
-  }
+  const fit = isFit(row.fit) ? row.fit : "straight";
+  const ownership: Ownership = row.ownership === "borrowed" ? "borrowed" : "owned";
   return {
     id: row.id,
     name: row.name,
@@ -129,8 +126,15 @@ function itemDto(row: typeof closetItems.$inferSelect, category: ClosetCategoryD
     warmth: row.warmth,
     tags: row.tags ?? [],
     inLaundry: row.inLaundry,
-    imageUrl,
-    cutoutUrl,
+    imageUrl: assetUrl(row.id, "image", Boolean(row.imageType || row.blobPathname), origin, signed, row.updatedAt),
+    cutoutUrl: assetUrl(row.id, "cutout", Boolean(row.cutoutType || row.cutoutBlobPathname), origin, signed, row.updatedAt),
+    backImageUrl: assetUrl(row.id, "back", Boolean(row.backImageType || row.backBlobPathname), origin, signed, row.updatedAt),
+    backCutoutUrl: assetUrl(row.id, "back-cutout", Boolean(row.backCutoutType || row.backCutoutBlobPathname), origin, signed, row.updatedAt),
+    fit,
+    weatherNotes: row.weatherNotes ?? "",
+    ownership,
+    pairsWith: row.pairsWith ?? [],
+    avoidWith: row.avoidWith ?? [],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -178,6 +182,13 @@ export async function createItem(input: {
   inLaundry?: boolean;
   image?: { bytes: Buffer; type: string } | null;
   cutout?: { bytes: Buffer; type: string } | null;
+  back?: { bytes: Buffer; type: string } | null;
+  backCutout?: { bytes: Buffer; type: string } | null;
+  fit?: Fit;
+  weatherNotes?: string;
+  ownership?: Ownership;
+  pairsWith?: string[];
+  avoidWith?: string[];
 }) {
   if (input.image && input.image.bytes.length > imageByteLimit()) {
     throw new HttpError("Image is too large. Keep it under 1.5 MB.", 400);
@@ -195,11 +206,22 @@ export async function createItem(input: {
       warmth: input.warmth ?? 3,
       tags: cleanList(input.tags ?? ["casual"]),
       inLaundry: input.inLaundry ?? false,
+      fit: input.fit ?? "straight",
+      weatherNotes: (input.weatherNotes ?? "").slice(0, 120),
+      ownership: input.ownership ?? "owned",
+      pairsWith: input.pairsWith ?? [],
+      avoidWith: input.avoidWith ?? [],
     })
     .returning();
   if (input.image) await writeItemImage(row.id, input.image.bytes, input.image.type);
   if (input.cutout && input.cutout.type === "image/png" && input.cutout.bytes.length <= imageByteLimit()) {
     await writeItemCutout(row.id, input.cutout.bytes);
+  }
+  if (input.back && input.back.bytes.length <= imageByteLimit()) {
+    await writeItemBack(row.id, input.back.bytes, input.back.type);
+  }
+  if (input.backCutout && input.backCutout.type === "image/png" && input.backCutout.bytes.length <= imageByteLimit()) {
+    await writeItemBackCutout(row.id, input.backCutout.bytes);
   }
   return getItem(row.id, null, false);
 }
@@ -221,6 +243,11 @@ export async function updateItem(id: string, patch: ClosetItemPatch) {
       warmth: patch.warmth ?? current.warmth,
       tags: patch.tags ? cleanList(patch.tags) : current.tags,
       inLaundry: patch.inLaundry ?? current.inLaundry,
+      fit: patch.fit ?? current.fit,
+      weatherNotes: patch.weatherNotes !== undefined ? patch.weatherNotes.slice(0, 120) : current.weatherNotes,
+      ownership: patch.ownership ?? current.ownership,
+      pairsWith: patch.pairsWith ? patch.pairsWith.filter((itemId) => itemId !== id) : current.pairsWith,
+      avoidWith: patch.avoidWith ? patch.avoidWith.filter((itemId) => itemId !== id) : current.avoidWith,
       updatedAt: new Date(),
     })
     .where(eq(closetItems.id, id));
@@ -242,6 +269,18 @@ export async function itemImage(id: string) {
   return image;
 }
 
+export async function itemBack(id: string) {
+  const image = await readItemBack(id);
+  if (!image) throw new HttpError("No back photo", 404);
+  return image;
+}
+
+export async function itemBackCutout(id: string) {
+  const image = await readItemBackCutout(id);
+  if (!image) throw new HttpError("No back cutout", 404);
+  return image;
+}
+
 export async function itemCutout(id: string) {
   const image = await readItemCutout(id);
   if (!image) throw new HttpError("No cutout", 404);
@@ -249,13 +288,13 @@ export async function itemCutout(id: string) {
 }
 
 /** Rotate or mirror a saved photo and its cutout, then rewrite the stored bytes. */
-export async function orientItem(id: string, turn: PhotoTurn) {
+export async function orientItem(id: string, turn: PhotoTurn, side: "front" | "back" = "front") {
   const db = getDb();
   const [current] = await db.select({ id: closetItems.id }).from(closetItems).where(eq(closetItems.id, id));
   if (!current) throw new HttpError("Item not found", 404);
-  const image = await readItemImage(id);
-  if (!image) throw new HttpError("No photo", 400);
-  const cutout = await readItemCutout(id);
+  const image = side === "back" ? await readItemBack(id) : await readItemImage(id);
+  if (!image) throw new HttpError(side === "back" ? "No back photo" : "No photo", 400);
+  const cutout = side === "back" ? await readItemBackCutout(id) : await readItemCutout(id);
   let turned: { bytes: Buffer; type: string };
   let turnedCutout: { bytes: Buffer; type: string } | null = null;
   try {
@@ -266,8 +305,23 @@ export async function orientItem(id: string, turn: PhotoTurn) {
     if (/too large/i.test(message)) throw new HttpError("Image is too large. Keep it under 1.5 MB.", 400);
     throw new HttpError("Couldn't turn that photo", 400);
   }
-  await writeItemImage(id, turned.bytes, turned.type);
-  if (turnedCutout) await writeItemCutout(id, turnedCutout.bytes);
+  if (side === "back") {
+    await writeItemBack(id, turned.bytes, turned.type);
+    if (turnedCutout) await writeItemBackCutout(id, turnedCutout.bytes);
+  } else {
+    await writeItemImage(id, turned.bytes, turned.type);
+    if (turnedCutout) await writeItemCutout(id, turnedCutout.bytes);
+  }
+  return getItem(id, null, false);
+}
+
+export async function attachBack(id: string, image: { bytes: Buffer; type: string }, cutout?: { bytes: Buffer } | null) {
+  const db = getDb();
+  const [current] = await db.select({ id: closetItems.id }).from(closetItems).where(eq(closetItems.id, id));
+  if (!current) throw new HttpError("Item not found", 404);
+  if (image.bytes.length > imageByteLimit()) throw new HttpError("Image is too large. Keep it under 1.5 MB.", 400);
+  await writeItemBack(id, image.bytes, image.type);
+  if (cutout && cutout.bytes.length <= imageByteLimit()) await writeItemBackCutout(id, cutout.bytes);
   return getItem(id, null, false);
 }
 
@@ -302,6 +356,11 @@ async function pickInputs(date: string): Promise<PickItem[]> {
     tags: item.tags,
     inLaundry: item.inLaundry,
     lastWorn: worn.get(item.id) ?? null,
+    fit: item.fit,
+    weatherNotes: item.weatherNotes,
+    ownership: item.ownership,
+    pairsWith: item.pairsWith,
+    avoidWith: item.avoidWith,
   }));
 }
 
@@ -406,6 +465,7 @@ export async function ensureOutfit(date: string, origin: string | null, signed: 
     locked,
     swapSlot: options?.swapSlot,
     weatherLive: weather.live,
+    raining: /rain|thunder|drizzle|storm/i.test(weather.label),
     prompt,
     clipScores: options?.clipScores,
   });

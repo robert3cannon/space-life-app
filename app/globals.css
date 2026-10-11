@@ -622,34 +622,90 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 .mannequin {
   position: relative;
   width: min(220px, 100%);
-  aspect-ratio: 200 / 400;
+  aspect-ratio: 200 / 530;
   margin: 10px auto 0;
 }
 .mannequin.compact { width: min(150px, 46%); margin-top: 8px; }
 .mannequin svg { display: block; width: 100%; height: 100%; }
-.mannequin-zone {
+.wear {
   position: absolute;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   pointer-events: none;
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.32));
 }
-.mannequin-zone img {
+.wear img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: center top;
-  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.28));
 }
-.zone-hat img, .zone-shoes img { object-position: center bottom; }
-.mannequin-swatch { display: block; width: 100%; height: 100%; border-radius: 18px; opacity: 0.92; }
-.zone-shoes { z-index: 1; left: 10%; top: 78%; width: 80%; height: 20%; }
-.zone-bottom { z-index: 2; left: 22%; top: 50%; width: 56%; height: 38%; }
-.zone-shorts { z-index: 2; left: 24%; top: 50%; width: 52%; height: 18%; }
-.zone-top { z-index: 3; left: 20%; top: 24%; width: 60%; height: 32%; }
-.zone-hoodie { z-index: 4; left: 12%; top: 20%; width: 76%; height: 38%; }
-.zone-jacket { z-index: 5; left: 8%; top: 18%; width: 84%; height: 42%; }
-.zone-hat { z-index: 6; left: 24%; top: 0%; width: 52%; height: 20%; }
+.mannequin-swatch { display: block; border-radius: 16px; opacity: 0.92; }
+.wear-top { z-index: 3; left: 22%; top: 21%; width: 56%; height: 28%; }
+.wear-top.fit-slim { left: 26%; width: 48%; }
+.wear-top.fit-oversized { left: 14%; width: 72%; height: 32%; }
+.wear-top.fit-cropped { height: 20%; }
+.wear-top.fit-hip-length { height: 38%; }
+.wear-hoodie { z-index: 4; left: 8%; top: 18%; width: 84%; height: 36%; }
+.wear-jacket { z-index: 5; left: 6%; top: 17%; width: 88%; height: 40%; }
+.wear-hat { z-index: 6; left: 27%; top: 1%; width: 46%; height: 12%; transform: rotate(-3deg); transform-origin: center bottom; }
+.wear-bottom, .wear-shorts { z-index: 2; left: 0; top: 0; width: 100%; height: 100%; filter: none; }
+.wear-bottom .leg, .wear-shorts .leg {
+  position: absolute;
+  width: 46%;
+  height: 42%;
+  left: 27%;
+  top: 47%;
+  object-fit: contain;
+  object-position: center top;
+  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.3));
+}
+.wear-shorts .leg { height: 20%; }
+.leg-r { display: none; }
+.wear-shoes { z-index: 1; left: 0; top: 0; width: 100%; height: 100%; filter: none; }
+.wear-shoes .shoe {
+  position: absolute;
+  width: 34%;
+  height: 13%;
+  top: 80%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 5px 4px rgba(0, 0, 0, 0.4));
+}
+.shoe-l { left: 14%; transform: rotate(-18deg); transform-origin: 80% center; }
+.shoe-r { left: 52%; transform: scaleX(-1) rotate(-18deg); transform-origin: 20% center; }
+.photo-flip { position: relative; }
+.photo-flip img, .photo-flip .outfit-fallback { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #100c24; }
+.back-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 0 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.sheet .back-photo { margin: 0 0 12px; }
+.photo-flip-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(12, 10, 28, 0.72);
+  color: inherit;
+  font-size: 12px;
+}
+.skin-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -3px;
+  border: 1px solid rgba(255,255,255,0.35);
+}
 .closet-actions { margin-top: 12px; }
 .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
 a.today-outfit-link { display: block; text-decoration: none; color: inherit; margin-bottom: 4px; }

@@ -24,4 +24,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   outfitReminder: { enabled: true, time: "10:30" },
   equipment: DEFAULT_EQUIPMENT,
   circuitAudio: { enabled: true, volume: 70 },
+  skinTone: "fair",
 };

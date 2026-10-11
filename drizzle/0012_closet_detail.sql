@@ -1,0 +1,11 @@
+ALTER TABLE closet_items ADD COLUMN back_image bytea;
+ALTER TABLE closet_items ADD COLUMN back_image_type text;
+ALTER TABLE closet_items ADD COLUMN back_blob_pathname text;
+ALTER TABLE closet_items ADD COLUMN back_cutout bytea;
+ALTER TABLE closet_items ADD COLUMN back_cutout_type text;
+ALTER TABLE closet_items ADD COLUMN back_cutout_blob_pathname text;
+ALTER TABLE closet_items ADD COLUMN fit text NOT NULL DEFAULT 'straight' CHECK (fit IN ('slim', 'straight', 'relaxed', 'oversized', 'cropped', 'hip-length'));
+ALTER TABLE closet_items ADD COLUMN weather_notes text NOT NULL DEFAULT '';
+ALTER TABLE closet_items ADD COLUMN ownership text NOT NULL DEFAULT 'owned' CHECK (ownership IN ('owned', 'borrowed'));
+ALTER TABLE closet_items ADD COLUMN pairs_with jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE closet_items ADD COLUMN avoid_with jsonb NOT NULL DEFAULT '[]'::jsonb;

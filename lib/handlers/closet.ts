@@ -1,6 +1,7 @@
 import { isAuthedRequest, isBotRequest } from "../auth";
 import { error, json, readJson } from "../api";
 import { closetImageSignatureOk, imageByteLimit } from "../closet-image";
+import { isFit, suggestFit, type Ownership } from "../closet-fit";
 import { HttpError } from "../errors";
 import { routeId } from "../ids";
 import {
@@ -8,6 +9,9 @@ import {
   createItem,
   deleteCategory,
   deleteItem,
+  attachBack,
+  itemBack,
+  itemBackCutout,
   itemCutout,
   itemImage,
   listCategories,
@@ -76,8 +80,26 @@ export async function postClosetItem(req: Request) {
     cutoutFile instanceof File && cutoutFile.size > 0 && cutoutFile.size <= imageByteLimit() && (cutoutFile.type || "image/png") === "image/png"
       ? { bytes: Buffer.from(await cutoutFile.arrayBuffer()), type: "image/png" as const }
       : null;
+  const backFile = form.get("back");
+  const back =
+    backFile instanceof File && backFile.size > 0 && backFile.size <= imageByteLimit()
+      ? { bytes: Buffer.from(await backFile.arrayBuffer()), type: backFile.type === "image/jpg" ? "image/jpeg" : backFile.type || "image/jpeg" }
+      : null;
+  const backCutoutFile = form.get("backCutout");
+  const backCutout =
+    backCutoutFile instanceof File && backCutoutFile.size > 0 && backCutoutFile.size <= imageByteLimit() && (backCutoutFile.type || "image/png") === "image/png"
+      ? { bytes: Buffer.from(await backCutoutFile.arrayBuffer()), type: "image/png" as const }
+      : null;
+  const name = String(form.get("name") ?? "");
+  const fitRaw = String(form.get("fit") ?? "");
+  const ownershipRaw = String(form.get("ownership") ?? "");
+  const ids = (key: string) =>
+    String(form.get(key) ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => /^[0-9a-f-]{36}$/i.test(part));
   const item = await createItem({
-    name: String(form.get("name") ?? ""),
+    name,
     filename: file.name,
     categoryId: String(form.get("categoryId") ?? "") || undefined,
     colors,
@@ -86,6 +108,13 @@ export async function postClosetItem(req: Request) {
     inLaundry: form.get("inLaundry") === "true",
     image: { bytes: Buffer.from(await file.arrayBuffer()), type: type === "image/jpg" ? "image/jpeg" : type },
     cutout,
+    back,
+    backCutout,
+    fit: isFit(fitRaw) ? fitRaw : suggestFit(name),
+    weatherNotes: String(form.get("weatherNotes") ?? ""),
+    ownership: (ownershipRaw === "borrowed" ? "borrowed" : "owned") as Ownership,
+    pairsWith: ids("pairsWith"),
+    avoidWith: ids("avoidWith"),
   });
   return json(item, 201);
 }
@@ -103,7 +132,48 @@ export async function deleteClosetItem(_req: Request, ctx: { params: Promise<{ i
 export async function postOrientItem(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = await routeId(ctx);
   const input = closetOrientSchema.parse(await readJson(req));
-  return json(await orientItem(id, input.turn));
+  return json(await orientItem(id, input.turn, input.side ?? "front"));
+}
+
+async function serveAsset(req: Request, ctx: { params: Promise<{ id: string }> }, read: (id: string) => Promise<{ bytes: Buffer; type: string }>) {
+  const id = await routeId(ctx);
+  const url = new URL(req.url);
+  const allowed =
+    (await isAuthedRequest(req)) ||
+    isBotRequest(req) ||
+    closetImageSignatureOk(id, url.searchParams.get("exp"), url.searchParams.get("sig"));
+  if (!allowed) return error("Unauthorized", 401);
+  const image = await read(id);
+  return new Response(new Uint8Array(image.bytes), {
+    headers: {
+      "content-type": image.type,
+      "cache-control": "private, no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
+export async function postClosetBack(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const id = await routeId(ctx);
+  const form = await req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) throw new HttpError("Choose a photo", 400);
+  const type = file.type === "image/jpg" ? "image/jpeg" : file.type || "image/jpeg";
+  if (!["image/jpeg", "image/webp", "image/png"].includes(type)) throw new HttpError("Use a JPEG, WebP, or PNG", 400);
+  const cutoutFile = form.get("cutout");
+  const cutout =
+    cutoutFile instanceof File && cutoutFile.size > 0 && (cutoutFile.type || "image/png") === "image/png"
+      ? { bytes: Buffer.from(await cutoutFile.arrayBuffer()) }
+      : null;
+  return json(await attachBack(id, { bytes: Buffer.from(await file.arrayBuffer()), type }, cutout));
+}
+
+export function getClosetBack(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return serveAsset(req, ctx, itemBack);
+}
+
+export function getClosetBackCutout(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return serveAsset(req, ctx, itemBackCutout);
 }
 
 export async function getClosetImage(req: Request, ctx: { params: Promise<{ id: string }> }) {

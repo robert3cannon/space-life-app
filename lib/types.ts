@@ -66,6 +66,7 @@ export type AppSettings = {
   outfitReminder: OutfitReminderSetting;
   equipment: EquipmentProfile;
   circuitAudio: CircuitAudioSetting;
+  skinTone: "porcelain" | "fair" | "olive" | "tan" | "brown" | "deep";
 };
 
 export type EventDto = {
@@ -296,6 +297,13 @@ export type ClosetItemDto = {
   inLaundry: boolean;
   imageUrl: string | null;
   cutoutUrl: string | null;
+  backImageUrl: string | null;
+  backCutoutUrl: string | null;
+  fit: "slim" | "straight" | "relaxed" | "oversized" | "cropped" | "hip-length";
+  weatherNotes: string;
+  ownership: "owned" | "borrowed";
+  pairsWith: string[];
+  avoidWith: string[];
   createdAt: string;
   updatedAt: string;
 };

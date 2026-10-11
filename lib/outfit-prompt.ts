@@ -14,6 +14,7 @@ export type OutfitWish = {
   warmth: "cozy" | "light" | null;
   includes: ItemHint[];
   excludes: ItemHint[];
+  allowBorrowed: boolean;
 };
 
 export const VIBE_CHIPS: { label: string; prompt: string }[] = [
@@ -80,6 +81,7 @@ const EMPTY: OutfitWish = {
   warmth: null,
   includes: [],
   excludes: [],
+  allowBorrowed: false,
 };
 
 export function normalizeColor(color: string) {
@@ -231,5 +233,6 @@ export function parseOutfitPrompt(raw: string): OutfitWish {
     warmth,
     includes: hintsIn(keep).filter((hint) => hint.kinds.length > 0),
     excludes: excludes.flatMap((phrase) => hintsIn(phrase)),
+    allowBorrowed: /\b(borrowed|roommate)\b/.test(keep) && !/\b(no|skip|without)\s+(borrowed|roommate)\b/.test(keep),
   };
 }
