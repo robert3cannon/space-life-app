@@ -102,6 +102,20 @@ describe("outfit lay", () => {
     assert.equal(kept.h, 36);
   });
 
+  it("keeps pants length visible under an open jacket", () => {
+    const aspects = { layer: 0.85, bottom: 0.52 };
+    const laid = styledTargets(["layer", "bottom"], () => "jacket", aspects);
+    const layer = laid.find((piece) => piece.slot === "layer");
+    const pants = laid.find((piece) => piece.slot === "bottom");
+    assert.ok(layer && pants);
+    const layerHeight = contentHeight(layer.width, aspects.layer);
+    const pantsLength = contentHeight(pants.width, aspects.bottom);
+    assert.ok(pants.top > layer.top + layerHeight * 0.75);
+    assert.ok(pants.top < layer.top + layerHeight);
+    assert.ok(pants.top + pantsLength < 98);
+    assert.ok(Math.abs((layer.width / pantsLength) * LAY_ASPECT - JACKET_TO_PANTS) < 0.02);
+  });
+
   it("notes a missing top under a jacket and missing shoes", () => {
     assert.deepEqual(layNotes(["layer", "bottom"]), ["Add a top under the jacket", "Add shoes to complete looks"]);
     assert.deepEqual(layNotes(["top", "bottom", "layer", "shoes"]), []);

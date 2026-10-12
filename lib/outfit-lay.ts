@@ -165,7 +165,10 @@ export function styledTargets(slots: Slot[], idFor: (slot: Slot) => string, aspe
   const hatTop = 2;
   const topTop = hasHat ? Math.max(8, hatTop + height("hat") * 0.55) : 6;
   const layerTop = hasTop ? Math.max(3, topTop - 2) : 8;
-  const pantsTop = hasTop ? topTop + height("top") * 0.58 : hasLayer ? layerTop + height("layer") * 0.5 : 14;
+  const pantsHeightPct = slots.includes("bottom") ? height("bottom") : 0;
+  // A top overlaps the waist. An open jacket only covers the waistband, so the pants length stays visible.
+  let pantsTop = hasTop ? topTop + height("top") * 0.58 : hasLayer ? layerTop + height("layer") * 0.82 : 14;
+  if (pantsHeightPct && pantsTop + pantsHeightPct > 96) pantsTop = Math.max(8, 96 - pantsHeightPct);
   const shoeHeight = slots.includes("shoes") ? height("shoes") : 8;
   const shoeTop = Math.min(100 - shoeHeight - 1, slots.includes("bottom") ? pantsTop + height("bottom") * 0.82 : 80);
 
