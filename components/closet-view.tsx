@@ -123,7 +123,7 @@ export function TodayOutfitPeek() {
       {data.outfit ? (
         <Link href="/outfits" className="card today-outfit-link" data-testid="today-outfit-peek">
           <p className="kicker">{weatherLine(data.outfit)}</p>
-          <OutfitModel outfit={data.outfit} compact />
+          <OutfitModel outfit={data.outfit} compact view="styled" />
           <p className="muted today-outfit-reason">{data.outfit.reason}</p>
         </Link>
       ) : (
@@ -148,7 +148,7 @@ export function ClosetView() {
   const [swapOpen, setSwapOpen] = useState(false);
   const [catsOpen, setCatsOpen] = useState(false);
   const [pending, setPending] = useState<PendingPiece[]>([]);
-  const [outfitView, setOutfitView] = useState<"model" | "pieces">("model");
+  const [outfitView, setOutfitView] = useState<"styled" | "mannequin" | "pieces">("styled");
   const [vibe, setVibe] = useState("");
   const [newCat, setNewCat] = useState({ name: "", slot: "top" as ClosetSlotName });
   const savedPrompt = outfit.data?.outfit?.prompt ?? "";
@@ -643,10 +643,11 @@ export function ClosetView() {
         {pick ? (
           <>
             <div className="outfit-toggle" role="group" aria-label="Outfit view">
-              <button className={`chip ${outfitView === "model" ? "on" : ""}`} type="button" data-testid="outfit-view-model" onClick={() => setOutfitView("model")}>On model</button>
+              <button className={`chip ${outfitView === "styled" ? "on" : ""}`} type="button" data-testid="outfit-view-styled" onClick={() => setOutfitView("styled")}>Styled</button>
+              <button className={`chip ${outfitView === "mannequin" ? "on" : ""}`} type="button" data-testid="outfit-view-mannequin" onClick={() => setOutfitView("mannequin")}>Mannequin</button>
               <button className={`chip ${outfitView === "pieces" ? "on" : ""}`} type="button" data-testid="outfit-view-pieces" onClick={() => setOutfitView("pieces")}>Pieces</button>
             </div>
-            {outfitView === "model" ? <OutfitModel outfit={pick} /> : <OutfitPhotos outfit={pick} />}
+            {outfitView === "pieces" ? <OutfitPhotos outfit={pick} /> : <OutfitModel outfit={pick} view={outfitView === "mannequin" ? "mannequin" : "styled"} />}
             <p>{pick.reason}</p>
             <p className="faint">{pick.source === "bot" ? "Picked by Outfit Selector." : "Picked in Orbit."}{pick.wornAt ? " Logged as worn." : ""}</p>
             <div className="stack closet-actions">

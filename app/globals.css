@@ -619,69 +619,62 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 }
 .outfit-slot figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .outfit-toggle { display: flex; gap: 8px; margin-top: 12px; }
-.mannequin {
+.styled-lay, .photo-mann {
   position: relative;
-  width: min(232px, 92%);
-  aspect-ratio: 320 / 700;
-  margin: 10px auto 0;
+  width: min(100%, 340px);
+  margin: 12px auto 0;
+  border-radius: 22px;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
-.mannequin.compact { width: min(156px, 46%); margin-top: 8px; }
-.mannequin svg, .mannequin canvas {
+.styled-lay {
+  aspect-ratio: 3 / 4;
+  background-color: #7c7988;
+  background-image: radial-gradient(95% 78% at 50% 40%, rgba(255, 255, 255, 0.14), transparent 72%);
+}
+.styled-lay::before {
+  content: "";
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.mannequin .figure-body { z-index: 0; }
-.mannequin .wear-canvas { z-index: 1; }
-.mannequin .figure-front { z-index: 2; }
-.mannequin .hat-canvas { z-index: 3; }
-.wear {
-  position: absolute;
   pointer-events: none;
-  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.32));
+  background-image:
+    radial-gradient(1px 1px at 10% 8%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 88% 12%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1px 1px at 14% 92%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 84% 86%, rgba(255,255,255,0.35), transparent);
+  opacity: 0.9;
 }
-.wear img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center top;
-}
-.mannequin-swatch { display: block; border-radius: 16px; opacity: 0.92; }
-.wear-top { z-index: 3; left: 22%; top: 21%; width: 56%; height: 28%; }
-.wear-top.fit-slim { left: 26%; width: 48%; }
-.wear-top.fit-oversized { left: 14%; width: 72%; height: 32%; }
-.wear-top.fit-cropped { height: 20%; }
-.wear-top.fit-hip-length { height: 38%; }
-.wear-hoodie { z-index: 4; left: 8%; top: 18%; width: 84%; height: 36%; }
-.wear-jacket { z-index: 5; left: 6%; top: 17%; width: 88%; height: 40%; }
-.wear-hat { z-index: 6; left: 27%; top: 1%; width: 46%; height: 12%; transform: rotate(-3deg); transform-origin: center bottom; }
-.wear-bottom, .wear-shorts { z-index: 2; left: 0; top: 0; width: 100%; height: 100%; filter: none; }
-.wear-bottom .leg, .wear-shorts .leg {
+.styled-lay.compact, .photo-mann.compact { width: min(156px, 46%); margin-top: 8px; border-radius: 16px; }
+.photo-mann { aspect-ratio: 9 / 16; background: #2a2830; }
+.mann-base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.lay-piece, .mann-piece {
   position: absolute;
-  width: 46%;
-  height: 42%;
-  left: 27%;
-  top: 47%;
-  object-fit: contain;
-  object-position: center top;
-  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.3));
+  max-width: none;
+  height: auto;
+  pointer-events: none;
+  transform-origin: center center;
 }
-.wear-shorts .leg { height: 20%; }
-.leg-r { display: none; }
-.wear-shoes { z-index: 1; left: 0; top: 0; width: 100%; height: 100%; filter: none; }
-.wear-shoes .shoe {
+.lay-piece { filter: drop-shadow(0 10px 8px rgba(24, 18, 36, 0.42)) drop-shadow(0 1px 1px rgba(24, 18, 36, 0.3)); }
+.mann-piece { filter: drop-shadow(0 3px 2px rgba(20, 16, 28, 0.35)); }
+.styled-lay::after {
+  content: "";
   position: absolute;
-  width: 34%;
-  height: 13%;
-  top: 80%;
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0 5px 4px rgba(0, 0, 0, 0.4));
+  left: 12%;
+  right: 12%;
+  bottom: 6%;
+  height: 10%;
+  background: radial-gradient(ellipse at center, rgba(20, 16, 32, 0.28), transparent 72%);
+  pointer-events: none;
+  z-index: 0;
 }
-.shoe-l { left: 14%; transform: rotate(-18deg); transform-origin: 80% center; }
-.shoe-r { left: 52%; transform: scaleX(-1) rotate(-18deg); transform-origin: 20% center; }
+.lay-note {
+  position: relative;
+  z-index: 6;
+  margin: 8px 10px 0;
+  font-size: 12px;
+  color: var(--faint);
+}
 .photo-flip { position: relative; }
 .photo-flip img, .photo-flip .outfit-fallback { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #100c24; }
 .back-photo {
@@ -706,15 +699,6 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   background: rgba(12, 10, 28, 0.72);
   color: inherit;
   font-size: 12px;
-}
-.skin-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 6px;
-  vertical-align: -3px;
-  border: 1px solid rgba(255,255,255,0.35);
 }
 .closet-actions { margin-top: 12px; }
 .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
