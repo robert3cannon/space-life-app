@@ -654,6 +654,22 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   transform-origin: center center;
   filter: drop-shadow(0 10px 8px rgba(24, 18, 36, 0.42)) drop-shadow(0 1px 1px rgba(24, 18, 36, 0.3));
 }
+.lay-ghost {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.38);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+.lay-ghost.top { left: 18%; top: 14%; width: 34%; height: 26%; }
+.lay-ghost.shoes { left: 22%; top: 80%; width: 56%; height: 12%; border-radius: 999px; }
+.lay-gap {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lay-gap.compact { font-size: 11px; margin-top: 6px; }
 .styled-lay::after {
   content: "";
   position: absolute;

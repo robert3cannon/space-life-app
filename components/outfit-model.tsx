@@ -3,9 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   LAY_ASPECT,
+  contentClip,
   fitContent,
+  layNotes,
+  maskRows,
   shoeShouldMirror,
   styledTargets,
+  withoutHanger,
   type CutoutMeasure,
   type Slot,
   type Target,
@@ -31,13 +35,12 @@ function measureImage(image: HTMLImageElement): CutoutMeasure | null {
   } catch {
     return null;
   }
+  const rows = maskRows(data, canvas.width, canvas.height, 4);
+  const box = withoutHanger(rows);
+  if (!box) return null;
   const step = 3;
   let opaque = 0;
   let seen = 0;
-  let minX = canvas.width;
-  let minY = canvas.height;
-  let maxX = 0;
-  let maxY = 0;
   let edgeOpaque = 0;
   let edge = 0;
   for (let y = 0; y < canvas.height; y += step) {
@@ -49,16 +52,13 @@ function measureImage(image: HTMLImageElement): CutoutMeasure | null {
         edge += 1;
         if (alpha > 24) edgeOpaque += 1;
       }
-      if (alpha > 24) {
-        opaque += 1;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
+      if (alpha > 24) opaque += 1;
     }
   }
-  if (maxX <= minX || maxY <= minY) return null;
+  const minX = box.x;
+  const minY = box.y;
+  const maxX = box.x + box.w;
+  const maxY = box.y + box.h;
   const midLeft = minX + (maxX - minX) * 0.42;
   const midRight = minX + (maxX - minX) * 0.58;
   let gap = 0;
@@ -75,7 +75,7 @@ function measureImage(image: HTMLImageElement): CutoutMeasure | null {
     opaqueRatio: opaque / Math.max(1, seen),
     edgeTouch: edgeOpaque / Math.max(1, edge),
     gapRatio: gap / Math.max(1, gapSeen),
-    box: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+    box,
   };
 }
 
@@ -128,7 +128,8 @@ function Garments({
         const url = item ? pieceUrl(item) : "";
         const measured = url ? measures[url] : undefined;
         if (!item || !url || !measured || measured === "bad") return null;
-        const placed = fitContent(target, { w: measured.width, h: measured.height }, measured.box, aspect);
+        const image = { w: measured.width, h: measured.height };
+        const placed = fitContent(target, image, measured.box, aspect);
         return (
           <img
             key={`${item.id}-${index}`}
@@ -140,6 +141,8 @@ function Garments({
               top: `${placed.top}%`,
               width: `${placed.width}%`,
               zIndex: target.z,
+              clipPath: contentClip(image, measured.box),
+              transformOrigin: `${((measured.box.x + measured.box.w / 2) / image.w) * 100}% ${((measured.box.y + measured.box.h / 2) / image.h) * 100}%`,
               transform: `rotate(${target.rotate}deg) scaleX(${target.mirror ? -1 : 1})`,
             }}
           />
@@ -169,21 +172,41 @@ export function OutfitModel({
   );
   const measures = useMeasures(items.map(pieceUrl));
   const slots = readySlots(items);
+  const aspects: Partial<Record<Slot, number>> = {};
+  for (const item of items) {
+    const slot = asSlot(item.slot);
+    const measured = slot ? measures[pieceUrl(item)] : undefined;
+    if (!slot || !measured || measured === "bad" || measured.box.h < 1) continue;
+    aspects[slot] = measured.box.w / measured.box.h;
+  }
   const label = items.map((item) => item.name).join(", ");
   const idFor = (slot: Slot) => items.find((item) => item.slot === slot)?.id ?? slot;
   const shoe = items.find((item) => item.slot === "shoes");
   const shoeMeasure = shoe ? measures[pieceUrl(shoe)] : undefined;
   const mirrorShoes = !shoeMeasure || shoeMeasure === "bad" ? true : shoeShouldMirror(shoeMeasure);
-  const styled = styledTargets(slots, idFor).filter((target) => mirrorShoes || !target.mirror);
+  const styled = styledTargets(slots, idFor, aspects).filter((target) => mirrorShoes || !target.mirror);
+  const owned = outfit.items.map((item) => item.slot);
+  const notes = layNotes(owned);
+  const missingTop = owned.includes("layer") && !owned.includes("top");
+  const missingShoes = !owned.includes("shoes");
 
   return (
-    <figure
-      className={`styled-lay${compact ? " compact" : ""}`}
-      data-testid="outfit-model"
-      data-view="styled"
-      aria-label={label ? `Styled outfit: ${label}` : "Styled outfit"}
-    >
-      <Garments items={items} targets={styled} measures={measures} aspect={LAY_ASPECT} className="lay-piece" />
-    </figure>
+    <>
+      <figure
+        className={`styled-lay${compact ? " compact" : ""}`}
+        data-testid="outfit-model"
+        data-view="styled"
+        aria-label={label ? `Styled outfit: ${label}` : "Styled outfit"}
+      >
+        {missingTop ? <span className="lay-ghost top" /> : null}
+        {missingShoes ? <span className="lay-ghost shoes" /> : null}
+        <Garments items={items} targets={styled} measures={measures} aspect={LAY_ASPECT} className="lay-piece" />
+      </figure>
+      {notes.length ? (
+        <p className={`lay-gap${compact ? " compact" : ""}`} data-testid="outfit-gap">
+          {notes.join(" · ")}
+        </p>
+      ) : null}
+    </>
   );
 }

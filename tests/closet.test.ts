@@ -326,6 +326,22 @@ describe("outfit picker", () => {
     assert.equal(tied.slots.top, "black-tee");
   });
 
+  it("adds a tee under an open jacket at 55F when that tee was worn recently", () => {
+    const picked = pickOutfit({
+      date,
+      tempF: 55,
+      occasion: "casual",
+      items: [
+        item({ id: "jacket", name: "White jacket", slot: "layer", category: "Jackets", warmth: 3 }),
+        item({ id: "pants", name: "Sweatpants", slot: "bottom", category: "Pants" }),
+        item({ id: "tee", name: "Black tee", slot: "top", category: "Shirts/T-shirts", lastWorn: "2026-10-08" }),
+        item({ id: "oxford", name: "Oxford", slot: "top", category: "Long sleeves", lastWorn: "2026-10-08" }),
+      ],
+    });
+    assert.equal(picked.slots.layer, "jacket");
+    assert.equal(picked.slots.top, "tee");
+  });
+
   it("treats a 10:30 outfit nudge as due when the morning cron is within 90 minutes", () => {
     const today = "2026-01-15";
     const fireAt = new Date("2026-01-15T15:30:00.000Z");

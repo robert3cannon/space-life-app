@@ -84,6 +84,21 @@ export function occasionFor(events: { type: string }[]): StyleTag {
   return "casual";
 }
 
+/** An open jacket around the mid-50s still needs a shirt under it. */
+export function wantsTeeUnderJacket(tempF: number) {
+  return tempF >= 48 && tempF <= 65;
+}
+
+export function isOpenJacket(item: Pick<PickItem, "name" | "category" | "slot">) {
+  if (item.slot !== "layer") return false;
+  const text = `${item.name} ${item.category}`.toLowerCase();
+  return text.includes("jacket") && !text.includes("coat");
+}
+
+export function isTee(item: Pick<PickItem, "name">) {
+  return /\btee\b|\bt-?shirts?\b|\btshirts?\b/i.test(item.name);
+}
+
 export function layerForTemp(tempF: number): "jacket" | "hoodie" | null {
   if (tempF < 50) return "jacket";
   if (tempF <= 62) return "hoodie";
@@ -197,6 +212,7 @@ function scoreItem(
   clip: number,
   raining: boolean,
   style: StyleContext,
+  teeUnderJacket: boolean,
 ) {
   const partner = chosen.top ?? null;
   let score = wish ? wishAdjustment(item, wish, clip) : clip * CLIP_NUDGE;
@@ -232,6 +248,7 @@ function scoreItem(
   if (partner && item.slot !== "top") score += colorsPair(partner.colors, item.colors) ? 6 : -5;
   score += fitPairScore(item, partner);
   if (raining && badInRain(item)) score -= 70;
+  if (teeUnderJacket && item.slot === "top" && isTee(item)) score += 8;
   score += styleDelta(item, chosen, style);
   return score;
 }
@@ -298,10 +315,12 @@ export function pickOutfit(input: {
     return typeof value === "number" && Number.isFinite(value) ? value : 0;
   }
 
+  const teeUnderJacket = wantsTeeUnderJacket(input.tempF) && pool.some((item) => isOpenJacket(item));
+
   function ranked(candidates: PickItem[]) {
     return keepAvailable(candidates, wish).map((item) => ({
       item,
-      score: scoreItem(item, input.tempF, occasion, chosen, wish, clipOf(item), Boolean(input.raining), style),
+      score: scoreItem(item, input.tempF, occasion, chosen, wish, clipOf(item), Boolean(input.raining), style, teeUnderJacket),
     }));
   }
 
@@ -350,6 +369,14 @@ export function pickOutfit(input: {
     }
     const pick = pickOne(ranked(pool.filter((item) => item.slot === slot)), input.date, slot, salt, avoid);
     if (pick) chosen[slot] = pick;
+  }
+
+  if (!chosen.top && chosen.layer && isOpenJacket(chosen.layer) && wantsTeeUnderJacket(input.tempF)) {
+    let tops = available.filter((item) => item.slot === "top");
+    const tees = tops.filter((item) => isTee(item));
+    if (tees.length) tops = tees;
+    const pick = pickOne(ranked(tops), input.date, "top", salt, avoid);
+    if (pick) chosen.top = pick;
   }
 
   const slots: Partial<Record<OutfitSlot, string>> = {};
