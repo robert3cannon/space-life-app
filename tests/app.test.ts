@@ -294,6 +294,13 @@ describe("orbit data and bot API", () => {
     const next = await updateSettings({ targets: { calories: 2300, proteinG: 140, carbsG: 250, fatG: 70 } });
     assert.equal(next.targets.calories, 2300);
     assert.equal(next.timezone, "America/Detroit");
+    const profile = await updateSettings({ skinTone: "brown", age: 34 });
+    assert.equal(profile.skinTone, "brown");
+    assert.equal(profile.age, 34);
+    const kept = await updateSettings({ targets: { calories: 2300, proteinG: 140, carbsG: 250, fatG: 70 } });
+    assert.equal(kept.age, 34);
+    assert.equal(kept.skinTone, "brown");
+    await updateSettings({ skinTone: "fair", age: null });
     const denied = await cron(new Request("http://localhost/api/cron/dispatch"));
     assert.equal(denied.status, 401);
     const allowed = await cron(

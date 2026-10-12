@@ -22,6 +22,7 @@ import type { ClosetCategoryDto, ClosetItemDto, OutfitDto } from "../types";
 import type { ClosetCategoryWrite, ClosetItemPatch, OutfitSet } from "../validation";
 import { eastLansingWeather } from "../weather";
 import { listEvents } from "./events";
+import { getSettings } from "./settings";
 
 const SLOTS: OutfitSlot[] = [...OUTFIT_SLOTS];
 
@@ -454,6 +455,7 @@ export async function ensureOutfit(date: string, origin: string | null, signed: 
       if (item.slot !== options.swapSlot) locked[item.slot] = item.id;
     }
   }
+  const saved = await getSettings();
   const prompt = options?.prompt !== undefined ? options.prompt : (stored?.prompt ?? "");
   const picked = pickOutfit({
     items: closet,
@@ -468,6 +470,7 @@ export async function ensureOutfit(date: string, origin: string | null, signed: 
     raining: /rain|thunder|drizzle|storm/i.test(weather.label),
     prompt,
     clipScores: options?.clipScores,
+    profile: { age: saved.age, skinTone: saved.skinTone },
   });
   if (!picked.slots.top && !picked.slots.bottom) return current;
   await savePick(date, picked.slots, picked.reason, "rules", weather, generation, prompt);

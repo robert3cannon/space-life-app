@@ -67,6 +67,8 @@ export type AppSettings = {
   equipment: EquipmentProfile;
   circuitAudio: CircuitAudioSetting;
   skinTone: "porcelain" | "fair" | "olive" | "tan" | "brown" | "deep";
+  /** Whole years. Null until someone saves a profile. */
+  age: number | null;
 };
 
 export type EventDto = {

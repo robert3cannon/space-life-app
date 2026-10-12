@@ -262,6 +262,7 @@ export const settingsPatchSchema = z.object({
     })
     .optional(),
   skinTone: z.enum(["porcelain", "fair", "olive", "tan", "brown", "deep"]).optional(),
+  age: z.number().int().min(13).max(100).nullable().optional(),
 });
 
 export const waterCreateSchema = z.object({

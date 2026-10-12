@@ -25,4 +25,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
   equipment: DEFAULT_EQUIPMENT,
   circuitAudio: { enabled: true, volume: 70 },
   skinTone: "fair",
+  age: null,
 };

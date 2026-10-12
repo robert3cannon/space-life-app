@@ -1,5 +1,6 @@
 import type { Fit, Ownership } from "./closet-fit";
 import { hintMatches, itemKindList, parseOutfitPrompt, requestedHatStyle, requestedLayerKind, type OutfitWish } from "./outfit-prompt";
+import { complexionFor, styleDelta, styleLine, wantsStreetwear, type StyleContext } from "./outfit-style";
 
 export const CLOSET_SLOTS = ["top", "bottom", "layer", "shoes", "hat", "extra"] as const;
 export type ClosetSlot = (typeof CLOSET_SLOTS)[number];
@@ -187,7 +188,17 @@ function fitPairScore(item: PickItem, partner: PickItem | null) {
   return score;
 }
 
-function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: PickItem | null, wish: OutfitWish | null, clip: number, raining: boolean) {
+function scoreItem(
+  item: PickItem,
+  tempF: number,
+  occasion: StyleTag,
+  chosen: Partial<Record<OutfitSlot, PickItem>>,
+  wish: OutfitWish | null,
+  clip: number,
+  raining: boolean,
+  style: StyleContext,
+) {
+  const partner = chosen.top ?? null;
   let score = wish ? wishAdjustment(item, wish, clip) : clip * CLIP_NUDGE;
   if (item.tags.includes(occasion)) score += 8;
   else if (item.tags.includes("casual") || item.tags.length === 0) score += occasion === "casual" ? 3 : 1;
@@ -213,14 +224,15 @@ function scoreItem(item: PickItem, tempF: number, occasion: StyleTag, partner: P
   if (item.slot === "shoes") score += 2;
   if (item.slot === "hat") {
     const want = hatForLook(tempF, occasion);
-    const style = hatStyle(item);
-    if (want === "warm" && style === "warm") score += 10 + item.warmth;
-    else if (want === "light" && style === "light") score += 8;
+    const hatKind = hatStyle(item);
+    if (want === "warm" && hatKind === "warm") score += 10 + item.warmth;
+    else if (want === "light" && hatKind === "light") score += 8;
     else score -= 40;
   }
   if (partner && item.slot !== "top") score += colorsPair(partner.colors, item.colors) ? 6 : -5;
   score += fitPairScore(item, partner);
   if (raining && badInRain(item)) score -= 70;
+  score += styleDelta(item, chosen, style);
   return score;
 }
 
@@ -255,6 +267,8 @@ export function pickOutfit(input: {
   prompt?: string;
   clipScores?: Record<string, number>;
   raining?: boolean;
+  /** Saved profile. Omitted values stay generic so a closet without settings still picks. */
+  profile?: { age?: number | null; skinTone?: string | null };
 }): { slots: Partial<Record<OutfitSlot, string>>; reason: string } {
   const salt = input.salt ?? 0;
   const avoid = new Set(input.avoidIds ?? []);
@@ -272,6 +286,12 @@ export function pickOutfit(input: {
   const chosen: Partial<Record<OutfitSlot, PickItem>> = {};
   const layerKind = wish ? requestedLayerKind(wish) : null;
   const hatAsk = wish ? requestedHatStyle(wish) : null;
+  const style: StyleContext = {
+    complexion: complexionFor(input.profile?.skinTone),
+    occasion,
+    streetwear: wantsStreetwear(input.prompt),
+    age: input.profile?.age ?? null,
+  };
 
   function clipOf(item: PickItem) {
     const value = input.clipScores?.[item.id];
@@ -281,7 +301,7 @@ export function pickOutfit(input: {
   function ranked(candidates: PickItem[]) {
     return keepAvailable(candidates, wish).map((item) => ({
       item,
-      score: scoreItem(item, input.tempF, occasion, chosen.top ?? null, wish, clipOf(item), Boolean(input.raining)),
+      score: scoreItem(item, input.tempF, occasion, chosen, wish, clipOf(item), Boolean(input.raining), style),
     }));
   }
 
@@ -336,7 +356,7 @@ export function pickOutfit(input: {
   for (const slot of OUTFIT_SLOTS) {
     if (chosen[slot]) slots[slot] = chosen[slot]!.id;
   }
-  return { slots, reason: describeOutfit(chosen, input.tempF, occasion, input.weatherLive !== false, wish) };
+  return { slots, reason: describeOutfit(chosen, input.tempF, occasion, input.weatherLive !== false, wish, style) };
 }
 
 function describeOutfit(
@@ -345,6 +365,7 @@ function describeOutfit(
   occasion: StyleTag,
   live: boolean,
   wish: OutfitWish | null,
+  style: StyleContext,
 ) {
   const temp = `${Math.round(tempF)}°F in East Lansing`;
   const day =
@@ -367,5 +388,7 @@ function describeOutfit(
   if (top && bottom && colorsPair(top.colors, bottom.colors) && top.colors[0]) {
     reason += ` ${top.colors[0]} pairs with the ${bottom.name.toLowerCase()}.`;
   }
+  const line = styleLine(chosen, style);
+  if (line) reason += ` ${line}`;
   return reason;
 }

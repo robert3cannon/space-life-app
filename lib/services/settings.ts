@@ -39,7 +39,15 @@ function normalize(value: AppSettings): AppSettings {
       volume: clampVolume(value.circuitAudio?.volume),
     },
     skinTone: skinToneById(value.skinTone).id,
+    age: normalizeAge(value.age),
   };
+}
+
+function normalizeAge(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const age = Math.round(value);
+  if (age < 13 || age > 100) return null;
+  return age;
 }
 
 function clampVolume(value: number | undefined) {
