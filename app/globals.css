@@ -619,7 +619,7 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
 }
 .outfit-slot figcaption { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .outfit-toggle { display: flex; gap: 8px; margin-top: 12px; }
-.styled-lay, .photo-mann {
+.styled-lay {
   position: relative;
   width: min(100%, 340px);
   margin: 12px auto 0;
@@ -645,18 +645,15 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
     radial-gradient(1px 1px at 84% 86%, rgba(255,255,255,0.35), transparent);
   opacity: 0.9;
 }
-.styled-lay.compact, .photo-mann.compact { width: min(156px, 46%); margin-top: 8px; border-radius: 16px; }
-.photo-mann { aspect-ratio: 9 / 16; background: #2a2830; }
-.mann-base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.lay-piece, .mann-piece {
+.styled-lay.compact { width: min(156px, 46%); margin-top: 8px; border-radius: 16px; }
+.lay-piece {
   position: absolute;
   max-width: none;
   height: auto;
   pointer-events: none;
   transform-origin: center center;
+  filter: drop-shadow(0 10px 8px rgba(24, 18, 36, 0.42)) drop-shadow(0 1px 1px rgba(24, 18, 36, 0.3));
 }
-.lay-piece { filter: drop-shadow(0 10px 8px rgba(24, 18, 36, 0.42)) drop-shadow(0 1px 1px rgba(24, 18, 36, 0.3)); }
-.mann-piece { filter: drop-shadow(0 3px 2px rgba(20, 16, 28, 0.35)); }
 .styled-lay::after {
   content: "";
   position: absolute;
@@ -667,13 +664,6 @@ input:focus, select:focus, textarea:focus { border-color: rgba(122, 239, 255, 0.
   background: radial-gradient(ellipse at center, rgba(20, 16, 32, 0.28), transparent 72%);
   pointer-events: none;
   z-index: 0;
-}
-.lay-note {
-  position: relative;
-  z-index: 6;
-  margin: 8px 10px 0;
-  font-size: 12px;
-  color: var(--faint);
 }
 .photo-flip { position: relative; }
 .photo-flip img, .photo-flip .outfit-fallback { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #100c24; }

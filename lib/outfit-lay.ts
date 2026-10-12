@@ -1,4 +1,4 @@
-/** Flat-lay and mannequin placement. Photos stay unwarped: scale, position, and a small rotation only. */
+/** Flat-lay placement. Photos stay unwarped: scale, position, and a small rotation only. */
 
 export type Slot = "hat" | "top" | "layer" | "bottom" | "shoes";
 
@@ -23,14 +23,8 @@ export type CutoutMeasure = {
   box: ImageBox;
 };
 
-const BOARD = {
-  styled: 3 / 4,
-  mannequin: 9 / 16,
-} as const;
-
-export function boardAspect(kind: keyof typeof BOARD) {
-  return BOARD[kind];
-}
+/** Board width divided by board height. */
+export const LAY_ASPECT = 3 / 4;
 
 /** Stable, small rotation so the same piece does not jump between renders. */
 export function tiltFor(id: string, base: number, span = 3.5) {
@@ -78,29 +72,6 @@ export function styledTargets(slots: Slot[], idFor: (slot: Slot) => string): Tar
   return targets;
 }
 
-export function mannequinTargets(slots: Slot[]): Target[] {
-  const targets: Target[] = [];
-  if (slots.includes("hat")) targets.push({ slot: "hat", left: 37, top: 0.2, width: 26, rotate: -2, z: 6 });
-  if (slots.includes("top")) targets.push({ slot: "top", left: 17, top: 15.5, width: 66, rotate: 0, z: 2 });
-  if (slots.includes("layer")) targets.push({ slot: "layer", left: 11, top: 13.5, width: 78, rotate: 0, z: 3 });
-  if (slots.includes("bottom")) targets.push({ slot: "bottom", left: 33, top: 43, width: 34, rotate: 0, z: 1 });
-  if (slots.includes("shoes")) {
-    targets.push({ slot: "shoes", left: 24, top: 84, width: 26, rotate: -8, z: 4 });
-    targets.push({ slot: "shoes", left: 50, top: 84, width: 26, rotate: 7, z: 4, mirror: true });
-  }
-  return targets;
-}
-
-/** Hide the mannequin where a garment covers it, so limbs do not show beside the photo. */
-export function mannequinHoles(slots: Slot[]) {
-  const holes: ImageBox[] = [];
-  if (slots.includes("top") || slots.includes("layer")) holes.push({ x: 22, y: 15, w: 56, h: 34 });
-  if (slots.includes("layer")) holes.push({ x: 20, y: 40, w: 60, h: 12 });
-  if (slots.includes("bottom")) holes.push({ x: 32, y: 48, w: 36, h: 40 });
-  if (slots.includes("shoes")) holes.push({ x: 30, y: 84, w: 40, h: 10 });
-  return holes;
-}
-
 /**
  * Size the file so its opaque content lands on the target. Transparent margins do not shrink the garment.
  * boardAspect is board width / board height.
@@ -119,15 +90,6 @@ export function fitContent(
     top: target.top - (box.y / image.h) * height,
     width,
   };
-}
-
-export function cutoutIsClean(measure: CutoutMeasure, slot: Slot) {
-  if (measure.opaqueRatio > 0.9 || measure.opaqueRatio < 0.04) return false;
-  if (measure.edgeTouch > 0.28) return false;
-  const aspect = measure.height / Math.max(1, measure.width);
-  if (slot !== "bottom" && aspect > 2.15) return false;
-  if (measure.box.w < 8 || measure.box.h < 8) return false;
-  return true;
 }
 
 /** A single shoe is mirrored into a pair. A photo that already has a gap in the middle is placed once. */

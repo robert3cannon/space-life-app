@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  boardAspect,
-  cutoutIsClean,
+  LAY_ASPECT,
   fitContent,
-  mannequinTargets,
   shoeShouldMirror,
   styledTargets,
   type CutoutMeasure,
@@ -106,7 +104,7 @@ function useMeasures(urls: string[]) {
 }
 
 function pieceUrl(item: OutfitItemDto) {
-  return item.cutoutUrl || item.imageUrl || "";
+  return item.cutoutUrl || "";
 }
 
 function Garments({
@@ -161,11 +159,9 @@ function readySlots(items: OutfitItemDto[]) {
 export function OutfitModel({
   outfit,
   compact = false,
-  view,
 }: {
   outfit: OutfitDto;
   compact?: boolean;
-  view: "styled" | "mannequin";
 }) {
   const items = useMemo(
     () => outfit.items.filter((item) => asSlot(item.slot) && pieceUrl(item)),
@@ -178,37 +174,16 @@ export function OutfitModel({
   const shoe = items.find((item) => item.slot === "shoes");
   const shoeMeasure = shoe ? measures[pieceUrl(shoe)] : undefined;
   const mirrorShoes = !shoeMeasure || shoeMeasure === "bad" ? true : shoeShouldMirror(shoeMeasure);
-  const pending = items.some((item) => !measures[pieceUrl(item)]);
-  const mannequinClean =
-    !pending &&
-    items.length > 0 &&
-    items.every((item) => {
-      const slot = asSlot(item.slot);
-      const measured = measures[pieceUrl(item)];
-      return Boolean(item.cutoutUrl && slot && measured && measured !== "bad" && cutoutIsClean(measured, slot));
-    });
-  const showMannequin = view === "mannequin" && (pending || mannequinClean);
   const styled = styledTargets(slots, idFor).filter((target) => mirrorShoes || !target.mirror);
-  const dressed = mannequinTargets(slots).filter((target) => mirrorShoes || !target.mirror);
-
-  if (!showMannequin) {
-    return (
-      <figure
-        className={`styled-lay${compact ? " compact" : ""}`}
-        data-testid="outfit-model"
-        data-view="styled"
-        aria-label={label ? `Styled outfit: ${label}` : "Styled outfit"}
-      >
-        {view === "mannequin" && !pending ? <p className="lay-note">Showing the flat lay. A piece needs a clean cutout.</p> : null}
-        <Garments items={items} targets={styled} measures={measures} aspect={boardAspect("styled")} className="lay-piece" />
-      </figure>
-    );
-  }
 
   return (
-    <figure className={`photo-mann${compact ? " compact" : ""}`} data-testid="outfit-model" data-view="mannequin" aria-label={label ? `On mannequin: ${label}` : "On mannequin"}>
-      <img src="/mannequin.jpg" alt="" className="mann-base" />
-      <Garments items={items} targets={dressed} measures={measures} aspect={boardAspect("mannequin")} className="mann-piece" />
+    <figure
+      className={`styled-lay${compact ? " compact" : ""}`}
+      data-testid="outfit-model"
+      data-view="styled"
+      aria-label={label ? `Styled outfit: ${label}` : "Styled outfit"}
+    >
+      <Garments items={items} targets={styled} measures={measures} aspect={LAY_ASPECT} className="lay-piece" />
     </figure>
   );
 }
