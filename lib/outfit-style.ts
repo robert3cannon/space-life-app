@@ -228,7 +228,7 @@ export function harmonyScore(pieces: PickItem[], ctx: StyleContext) {
 }
 
 export function styleDelta(item: PickItem, chosen: Partial<Record<OutfitSlot, PickItem | undefined>>, ctx: StyleContext) {
-  const before = (Object.values(chosen) as (PickItem | undefined)[]).filter((piece): piece is PickItem => Boolean(piece) && piece.slot !== item.slot);
+  const before = (Object.values(chosen) as (PickItem | undefined)[]).filter((piece): piece is PickItem => piece != null && piece.slot !== item.slot);
   return harmonyScore([...before, item], ctx) - harmonyScore(before, ctx);
 }
 
